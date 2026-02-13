@@ -1,4 +1,4 @@
-name: Fabric Network Build & Test
+name: Fabric Network CI/CD
 
 on:
   push:
