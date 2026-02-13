@@ -1,0 +1,188 @@
+name: Fabric Network Validation
+
+on:
+  push:
+    branches: [ main, feature/* ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  validate-configuration:
+    name: Validate Network Configuration
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Check required files exist
+        run: |
+          echo "Checking for required configuration files..."
+          
+          # Check crypto-config.yaml
+          if [ ! -f "network/organizations/cryptogen/crypto-config.yaml" ]; then
+            echo "❌ ERROR: crypto-config.yaml not found"
+            exit 1
+          fi
+          echo "✅ crypto-config.yaml found"
+          
+          # Check docker-compose.yml
+          if [ ! -f "network/docker/docker-compose.yml" ]; then
+            echo "❌ ERROR: docker-compose.yml not found"
+            exit 1
+          fi
+          echo "✅ docker-compose.yml found"
+          
+          # Check startup scripts
+          if [ ! -f "network/scripts/01-generate-crypto.sh" ]; then
+            echo "❌ ERROR: 01-generate-crypto.sh not found"
+            exit 1
+          fi
+          echo "✅ 01-generate-crypto.sh found"
+          
+          if [ ! -f "network/scripts/02-start-network.sh" ]; then
+            echo "❌ ERROR: 02-start-network.sh not found"
+            exit 1
+          fi
+          echo "✅ 02-start-network.sh found"
+      
+      - name: Validate YAML syntax
+        run: |
+          echo "Validating YAML files..."
+          
+          # Install yamllint
+          pip install yamllint
+          
+          # Validate crypto-config.yaml
+          yamllint -d "{extends: default, rules: {line-length: {max: 120}}}" \
+            network/organizations/cryptogen/crypto-config.yaml
+          echo "✅ crypto-config.yaml is valid YAML"
+          
+          # Validate docker-compose.yml
+          yamllint -d "{extends: default, rules: {line-length: {max: 200}}}" \
+            network/docker/docker-compose.yml
+          echo "✅ docker-compose.yml is valid YAML"
+      
+      - name: Validate crypto-config structure
+        run: |
+          echo "Validating crypto-config.yaml structure..."
+          
+          # Check for required organizations
+          if ! grep -q "Name: Orderer" network/organizations/cryptogen/crypto-config.yaml; then
+            echo "❌ ERROR: Orderer organization not found"
+            exit 1
+          fi
+          
+          for org in PatientOrg HospitalAOrg HospitalBOrg LabOrg PharmacyOrg InsuranceOrg; do
+            if ! grep -q "Name: $org" network/organizations/cryptogen/crypto-config.yaml; then
+              echo "❌ ERROR: $org not found in crypto-config.yaml"
+              exit 1
+            fi
+            echo "✅ $org configured"
+          done
+      
+      - name: Validate docker-compose services
+        run: |
+          echo "Validating docker-compose.yml services..."
+          
+          # Check for orderer
+          if ! grep -q "orderer.orderer.healthchain.com" network/docker/docker-compose.yml; then
+            echo "❌ ERROR: Orderer service not found"
+            exit 1
+          fi
+          echo "✅ Orderer service configured"
+          
+          # Check for all peer services
+          for peer in patient hospitalA hospitalB lab pharmacy insurance; do
+            if ! grep -q "peer0.$peer.healthchain.com" network/docker/docker-compose.yml; then
+              echo "❌ ERROR: Peer $peer not found"
+              exit 1
+            fi
+            echo "✅ Peer $peer configured"
+          done
+          
+          # Check for CouchDB services
+          for db in patient hospitalA hospitalB lab pharmacy insurance; do
+            if ! grep -q "couchdb.$db" network/docker/docker-compose.yml; then
+              echo "❌ ERROR: CouchDB for $db not found"
+              exit 1
+            fi
+            echo "✅ CouchDB $db configured"
+          done
+          
+          # Check for CLI container
+          if ! grep -q "container_name: cli" network/docker/docker-compose.yml; then
+            echo "❌ ERROR: CLI container not found"
+            exit 1
+          fi
+          echo "✅ CLI container configured"
+      
+      - name: Validate port configurations
+        run: |
+          echo "Validating port configurations..."
+          
+          # Check for required ports
+          declare -A ports=(
+            ["7050"]="Orderer"
+            ["7051"]="PatientOrg Peer"
+            ["8051"]="HospitalAOrg Peer"
+            ["9051"]="HospitalBOrg Peer"
+            ["10051"]="LabOrg Peer"
+            ["11051"]="PharmacyOrg Peer"
+            ["12051"]="InsuranceOrg Peer"
+          )
+          
+          for port in "${!ports[@]}"; do
+            if ! grep -q "$port:$port" network/docker/docker-compose.yml; then
+              echo "❌ ERROR: Port $port for ${ports[$port]} not found"
+              exit 1
+            fi
+            echo "✅ Port $port configured for ${ports[$port]}"
+          done
+      
+      - name: Check scripts are executable
+        run: |
+          echo "Checking script permissions..."
+          
+          if [ ! -x "network/scripts/01-generate-crypto.sh" ]; then
+            echo "❌ ERROR: 01-generate-crypto.sh is not executable"
+            exit 1
+          fi
+          echo "✅ 01-generate-crypto.sh is executable"
+          
+          if [ ! -x "network/scripts/02-start-network.sh" ]; then
+            echo "❌ ERROR: 02-start-network.sh is not executable"
+            exit 1
+          fi
+          echo "✅ 02-start-network.sh is executable"
+      
+      - name: Validate .gitignore
+        run: |
+          echo "Validating .gitignore..."
+          
+          # Check that crypto material is ignored
+          if ! grep -q "ordererOrganizations" .gitignore; then
+            echo "⚠️  WARNING: ordererOrganizations not in .gitignore"
+          fi
+          
+          if ! grep -q "peerOrganizations" .gitignore; then
+            echo "⚠️  WARNING: peerOrganizations not in .gitignore"
+          fi
+          
+          echo "✅ .gitignore validation complete"
+      
+      - name: Summary
+        if: success()
+        run: |
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+          echo "✅ All validation checks passed!"
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+          echo ""
+          echo "Network Configuration Summary:"
+          echo "  • 1 Orderer organization"
+          echo "  • 6 Peer organizations"
+          echo "  • 6 CouchDB instances"
+          echo "  • 1 CLI container"
+          echo "  • Total: 14 services"
+          echo ""
+          echo "Ready for deployment! 🚀"
