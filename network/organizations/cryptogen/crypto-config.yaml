@@ -1,0 +1,71 @@
+# OrdererOrgs defines the orderer organizations
+OrdererOrgs:
+  - Name: Orderer
+    Domain: orderer.healthchain.com
+    EnableNodeOUs: true
+    Specs:
+      - Hostname: orderer
+        SANS:
+          - localhost
+
+# PeerOrgs defines the peer organizations
+PeerOrgs:
+  - Name: PatientOrg
+    Domain: patient.healthchain.com
+    EnableNodeOUs: true
+    Template:
+      Count: 1
+      SANS:
+        - localhost
+    Users:
+      Count: 2  # 2 additional users (Admin is created by default)
+
+  - Name: HospitalAOrg
+    Domain: hospitalA.healthchain.com
+    EnableNodeOUs: true
+    Template:
+      Count: 1
+      SANS:
+        - localhost
+    Users:
+      Count: 3  # Doctors, nurses, admin
+
+  - Name: HospitalBOrg
+    Domain: hospitalB.healthchain.com
+    EnableNodeOUs: true
+    Template:
+      Count: 1
+      SANS:
+        - localhost
+    Users:
+      Count: 3
+
+  - Name: LabOrg
+    Domain: lab.healthchain.com
+    EnableNodeOUs: true
+    Template:
+      Count: 1
+      SANS:
+        - localhost
+    Users:
+      Count: 2  # Lab techs
+
+  - Name: PharmacyOrg
+    Domain: pharmacy.healthchain.com
+    EnableNodeOUs: true
+    Template:
+      Count: 1
+      SANS:
+        - localhost
+    Users:
+      Count: 2  # Pharmacists
+
+  - Name: InsuranceOrg
+    Domain: insurance.healthchain.com
+    EnableNodeOUs: true
+    Template:
+      Count: 1
+      SANS:
+        - localhost
+    Users:
+      Count: 2  # Adjusters
