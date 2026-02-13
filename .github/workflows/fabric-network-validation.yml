@@ -3,8 +3,6 @@ name: Fabric Network CI/CD
 on:
   push:
     branches: [ main, feature/* ]
-  pull_request:
-    branches: [ main ]
 
 jobs:
   validate-and-build:
@@ -77,7 +75,7 @@ jobs:
         run: |
           echo "🚀 Starting Hyperledger Fabric network..."
           cd network/docker
-          docker-compose up -d
+          docker compose up -d
           echo "⏳ Waiting for containers to initialize..."
           sleep 15
           
@@ -190,4 +188,4 @@ jobs:
         run: |
           echo "🧹 Cleaning up..."
           cd network/docker
-          docker-compose down -v || true
+          docker compose down -v || true
