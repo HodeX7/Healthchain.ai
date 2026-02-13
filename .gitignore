@@ -1,1 +1,58 @@
+# Skill files (documentation/reference)
 files
+
+# Hyperledger Fabric generated files
+network/organizations/ordererOrganizations/
+network/organizations/peerOrganizations/
+network/channel-artifacts/*.block
+network/channel-artifacts/*.tx
+network/config/core.yaml
+network/config/orderer.yaml
+
+# Docker volumes and containers
+*.log
+
+# Node modules and dependencies
+node_modules/
+package-lock.json
+
+# Chaincode packages
+*.tar.gz
+*.cds
+
+# IDE and editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS specific files
+.DS_Store
+Thumbs.db
+
+# Environment files
+.env
+.env.local
+
+# Build artifacts
+dist/
+build/
+*.o
+*.so
+
+# Backup files
+*.bak
+*.backup
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Temporary files
+tmp/
+temp/
+*.tmp

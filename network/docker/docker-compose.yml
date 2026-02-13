@@ -1,0 +1,434 @@
+version: '3.7'
+
+volumes:
+  orderer.orderer.healthchain.com:
+  peer0.patient.healthchain.com:
+  peer0.hospitalA.healthchain.com:
+  peer0.hospitalB.healthchain.com:
+  peer0.lab.healthchain.com:
+  peer0.pharmacy.healthchain.com:
+  peer0.insurance.healthchain.com:
+
+networks:
+  healthchain:
+    name: fabric_healthchain
+
+services:
+  # Orderer Service
+  orderer.orderer.healthchain.com:
+    container_name: orderer.orderer.healthchain.com
+    image: hyperledger/fabric-orderer:2.5
+    labels:
+      service: hyperledger-fabric
+    environment:
+      - FABRIC_LOGGING_SPEC=INFO
+      - ORDERER_GENERAL_LISTENADDRESS=0.0.0.0
+      - ORDERER_GENERAL_LISTENPORT=7050
+      - ORDERER_GENERAL_LOCALMSPID=OrdererMSP
+      - ORDERER_GENERAL_LOCALMSPDIR=/var/hyperledger/orderer/msp
+      - ORDERER_GENERAL_TLS_ENABLED=true
+      - ORDERER_GENERAL_TLS_PRIVATEKEY=/var/hyperledger/orderer/tls/server.key
+      - ORDERER_GENERAL_TLS_CERTIFICATE=/var/hyperledger/orderer/tls/server.crt
+      - ORDERER_GENERAL_TLS_ROOTCAS=[/var/hyperledger/orderer/tls/ca.crt]
+      - ORDERER_GENERAL_CLUSTER_CLIENTCERTIFICATE=/var/hyperledger/orderer/tls/server.crt
+      - ORDERER_GENERAL_CLUSTER_CLIENTPRIVATEKEY=/var/hyperledger/orderer/tls/server.key
+      - ORDERER_GENERAL_CLUSTER_ROOTCAS=[/var/hyperledger/orderer/tls/ca.crt]
+      - ORDERER_GENERAL_BOOTSTRAPMETHOD=none
+      - ORDERER_CHANNELPARTICIPATION_ENABLED=true
+      - ORDERER_ADMIN_TLS_ENABLED=true
+      - ORDERER_ADMIN_TLS_CERTIFICATE=/var/hyperledger/orderer/tls/server.crt
+      - ORDERER_ADMIN_TLS_PRIVATEKEY=/var/hyperledger/orderer/tls/server.key
+      - ORDERER_ADMIN_TLS_ROOTCAS=[/var/hyperledger/orderer/tls/ca.crt]
+      - ORDERER_ADMIN_TLS_CLIENTROOTCAS=[/var/hyperledger/orderer/tls/ca.crt]
+      - ORDERER_ADMIN_LISTENADDRESS=0.0.0.0:7053
+      - ORDERER_OPERATIONS_LISTENADDRESS=orderer.orderer.healthchain.com:9443
+      - ORDERER_METRICS_PROVIDER=prometheus
+    working_dir: /root
+    command: orderer
+    volumes:
+      - ../organizations/ordererOrganizations/orderer.healthchain.com/orderers/orderer.orderer.healthchain.com/msp:/var/hyperledger/orderer/msp
+      - ../organizations/ordererOrganizations/orderer.healthchain.com/orderers/orderer.orderer.healthchain.com/tls:/var/hyperledger/orderer/tls
+      - orderer.orderer.healthchain.com:/var/hyperledger/production/orderer
+    ports:
+      - 7050:7050
+      - 7053:7053
+      - 9443:9443
+    networks:
+      - healthchain
+
+  # PatientOrg Peer
+  peer0.patient.healthchain.com:
+    container_name: peer0.patient.healthchain.com
+    image: hyperledger/fabric-peer:2.5
+    labels:
+      service: hyperledger-fabric
+    environment:
+      - FABRIC_CFG_PATH=/etc/hyperledger/peercfg
+      - FABRIC_LOGGING_SPEC=INFO
+      - CORE_PEER_TLS_ENABLED=true
+      - CORE_PEER_PROFILE_ENABLED=false
+      - CORE_PEER_TLS_CERT_FILE=/etc/hyperledger/fabric/tls/server.crt
+      - CORE_PEER_TLS_KEY_FILE=/etc/hyperledger/fabric/tls/server.key
+      - CORE_PEER_TLS_ROOTCERT_FILE=/etc/hyperledger/fabric/tls/ca.crt
+      - CORE_PEER_ID=peer0.patient.healthchain.com
+      - CORE_PEER_ADDRESS=peer0.patient.healthchain.com:7051
+      - CORE_PEER_LISTENADDRESS=0.0.0.0:7051
+      - CORE_PEER_CHAINCODEADDRESS=peer0.patient.healthchain.com:7052
+      - CORE_PEER_CHAINCODELISTENADDRESS=0.0.0.0:7052
+      - CORE_PEER_GOSSIP_BOOTSTRAP=peer0.patient.healthchain.com:7051
+      - CORE_PEER_GOSSIP_EXTERNALENDPOINT=peer0.patient.healthchain.com:7051
+      - CORE_PEER_LOCALMSPID=PatientOrgMSP
+      - CORE_PEER_MSPCONFIGPATH=/etc/hyperledger/fabric/msp
+      - CORE_OPERATIONS_LISTENADDRESS=peer0.patient.healthchain.com:9444
+      - CORE_METRICS_PROVIDER=prometheus
+      - CHAINCODE_AS_A_SERVICE_BUILDER_CONFIG={"peername":"peer0patient"}
+      - CORE_CHAINCODE_EXECUTETIMEOUT=300s
+      - CORE_LEDGER_STATE_STATEDATABASE=CouchDB
+      - CORE_LEDGER_STATE_COUCHDBCONFIG_COUCHDBADDRESS=couchdb.patient:5984
+      - CORE_LEDGER_STATE_COUCHDBCONFIG_USERNAME=admin
+      - CORE_LEDGER_STATE_COUCHDBCONFIG_PASSWORD=adminpw
+    volumes:
+      - ../config:/etc/hyperledger/peercfg
+      - ../organizations/peerOrganizations/patient.healthchain.com/peers/peer0.patient.healthchain.com:/etc/hyperledger/fabric
+      - peer0.patient.healthchain.com:/var/hyperledger/production
+    working_dir: /root
+    command: peer node start
+    ports:
+      - 7051:7051
+      - 9444:9444
+    networks:
+      - healthchain
+    depends_on:
+      - couchdb.patient
+
+  couchdb.patient:
+    container_name: couchdb.patient
+    image: couchdb:3.3.2
+    labels:
+      service: hyperledger-fabric
+    environment:
+      - COUCHDB_USER=admin
+      - COUCHDB_PASSWORD=adminpw
+    ports:
+      - 5984:5984
+    networks:
+      - healthchain
+
+  # HospitalAOrg Peer
+  peer0.hospitalA.healthchain.com:
+    container_name: peer0.hospitalA.healthchain.com
+    image: hyperledger/fabric-peer:2.5
+    labels:
+      service: hyperledger-fabric
+    environment:
+      - FABRIC_CFG_PATH=/etc/hyperledger/peercfg
+      - FABRIC_LOGGING_SPEC=INFO
+      - CORE_PEER_TLS_ENABLED=true
+      - CORE_PEER_PROFILE_ENABLED=false
+      - CORE_PEER_TLS_CERT_FILE=/etc/hyperledger/fabric/tls/server.crt
+      - CORE_PEER_TLS_KEY_FILE=/etc/hyperledger/fabric/tls/server.key
+      - CORE_PEER_TLS_ROOTCERT_FILE=/etc/hyperledger/fabric/tls/ca.crt
+      - CORE_PEER_ID=peer0.hospitalA.healthchain.com
+      - CORE_PEER_ADDRESS=peer0.hospitalA.healthchain.com:8051
+      - CORE_PEER_LISTENADDRESS=0.0.0.0:8051
+      - CORE_PEER_CHAINCODEADDRESS=peer0.hospitalA.healthchain.com:8052
+      - CORE_PEER_CHAINCODELISTENADDRESS=0.0.0.0:8052
+      - CORE_PEER_GOSSIP_EXTERNALENDPOINT=peer0.hospitalA.healthchain.com:8051
+      - CORE_PEER_GOSSIP_BOOTSTRAP=peer0.hospitalA.healthchain.com:8051
+      - CORE_PEER_LOCALMSPID=HospitalAOrgMSP
+      - CORE_PEER_MSPCONFIGPATH=/etc/hyperledger/fabric/msp
+      - CORE_OPERATIONS_LISTENADDRESS=peer0.hospitalA.healthchain.com:9445
+      - CORE_METRICS_PROVIDER=prometheus
+      - CHAINCODE_AS_A_SERVICE_BUILDER_CONFIG={"peername":"peer0hospitalA"}
+      - CORE_CHAINCODE_EXECUTETIMEOUT=300s
+      - CORE_LEDGER_STATE_STATEDATABASE=CouchDB
+      - CORE_LEDGER_STATE_COUCHDBCONFIG_COUCHDBADDRESS=couchdb.hospitalA:5984
+      - CORE_LEDGER_STATE_COUCHDBCONFIG_USERNAME=admin
+      - CORE_LEDGER_STATE_COUCHDBCONFIG_PASSWORD=adminpw
+    volumes:
+      - ../config:/etc/hyperledger/peercfg
+      - ../organizations/peerOrganizations/hospitalA.healthchain.com/peers/peer0.hospitalA.healthchain.com:/etc/hyperledger/fabric
+      - peer0.hospitalA.healthchain.com:/var/hyperledger/production
+    working_dir: /root
+    command: peer node start
+    ports:
+      - 8051:8051
+      - 9445:9445
+    networks:
+      - healthchain
+    depends_on:
+      - couchdb.hospitalA
+
+  couchdb.hospitalA:
+    container_name: couchdb.hospitalA
+    image: couchdb:3.3.2
+    labels:
+      service: hyperledger-fabric
+    environment:
+      - COUCHDB_USER=admin
+      - COUCHDB_PASSWORD=adminpw
+    ports:
+      - 6984:5984
+    networks:
+      - healthchain
+
+  # HospitalBOrg Peer
+  peer0.hospitalB.healthchain.com:
+    container_name: peer0.hospitalB.healthchain.com
+    image: hyperledger/fabric-peer:2.5
+    labels:
+      service: hyperledger-fabric
+    environment:
+      - FABRIC_CFG_PATH=/etc/hyperledger/peercfg
+      - FABRIC_LOGGING_SPEC=INFO
+      - CORE_PEER_TLS_ENABLED=true
+      - CORE_PEER_PROFILE_ENABLED=false
+      - CORE_PEER_TLS_CERT_FILE=/etc/hyperledger/fabric/tls/server.crt
+      - CORE_PEER_TLS_KEY_FILE=/etc/hyperledger/fabric/tls/server.key
+      - CORE_PEER_TLS_ROOTCERT_FILE=/etc/hyperledger/fabric/tls/ca.crt
+      - CORE_PEER_ID=peer0.hospitalB.healthchain.com
+      - CORE_PEER_ADDRESS=peer0.hospitalB.healthchain.com:9051
+      - CORE_PEER_LISTENADDRESS=0.0.0.0:9051
+      - CORE_PEER_CHAINCODEADDRESS=peer0.hospitalB.healthchain.com:9052
+      - CORE_PEER_CHAINCODELISTENADDRESS=0.0.0.0:9052
+      - CORE_PEER_GOSSIP_EXTERNALENDPOINT=peer0.hospitalB.healthchain.com:9051
+      - CORE_PEER_GOSSIP_BOOTSTRAP=peer0.hospitalB.healthchain.com:9051
+      - CORE_PEER_LOCALMSPID=HospitalBOrgMSP
+      - CORE_PEER_MSPCONFIGPATH=/etc/hyperledger/fabric/msp
+      - CORE_OPERATIONS_LISTENADDRESS=peer0.hospitalB.healthchain.com:9446
+      - CORE_METRICS_PROVIDER=prometheus
+      - CHAINCODE_AS_A_SERVICE_BUILDER_CONFIG={"peername":"peer0hospitalB"}
+      - CORE_CHAINCODE_EXECUTETIMEOUT=300s
+      - CORE_LEDGER_STATE_STATEDATABASE=CouchDB
+      - CORE_LEDGER_STATE_COUCHDBCONFIG_COUCHDBADDRESS=couchdb.hospitalB:5984
+      - CORE_LEDGER_STATE_COUCHDBCONFIG_USERNAME=admin
+      - CORE_LEDGER_STATE_COUCHDBCONFIG_PASSWORD=adminpw
+    volumes:
+      - ../config:/etc/hyperledger/peercfg
+      - ../organizations/peerOrganizations/hospitalB.healthchain.com/peers/peer0.hospitalB.healthchain.com:/etc/hyperledger/fabric
+      - peer0.hospitalB.healthchain.com:/var/hyperledger/production
+    working_dir: /root
+    command: peer node start
+    ports:
+      - 9051:9051
+      - 9446:9446
+    networks:
+      - healthchain
+    depends_on:
+      - couchdb.hospitalB
+
+  couchdb.hospitalB:
+    container_name: couchdb.hospitalB
+    image: couchdb:3.3.2
+    labels:
+      service: hyperledger-fabric
+    environment:
+      - COUCHDB_USER=admin
+      - COUCHDB_PASSWORD=adminpw
+    ports:
+      - 7984:5984
+    networks:
+      - healthchain
+
+  # LabOrg Peer
+  peer0.lab.healthchain.com:
+    container_name: peer0.lab.healthchain.com
+    image: hyperledger/fabric-peer:2.5
+    labels:
+      service: hyperledger-fabric
+    environment:
+      - FABRIC_CFG_PATH=/etc/hyperledger/peercfg
+      - FABRIC_LOGGING_SPEC=INFO
+      - CORE_PEER_TLS_ENABLED=true
+      - CORE_PEER_PROFILE_ENABLED=false
+      - CORE_PEER_TLS_CERT_FILE=/etc/hyperledger/fabric/tls/server.crt
+      - CORE_PEER_TLS_KEY_FILE=/etc/hyperledger/fabric/tls/server.key
+      - CORE_PEER_TLS_ROOTCERT_FILE=/etc/hyperledger/fabric/tls/ca.crt
+      - CORE_PEER_ID=peer0.lab.healthchain.com
+      - CORE_PEER_ADDRESS=peer0.lab.healthchain.com:10051
+      - CORE_PEER_LISTENADDRESS=0.0.0.0:10051
+      - CORE_PEER_CHAINCODEADDRESS=peer0.lab.healthchain.com:10052
+      - CORE_PEER_CHAINCODELISTENADDRESS=0.0.0.0:10052
+      - CORE_PEER_GOSSIP_EXTERNALENDPOINT=peer0.lab.healthchain.com:10051
+      - CORE_PEER_GOSSIP_BOOTSTRAP=peer0.lab.healthchain.com:10051
+      - CORE_PEER_LOCALMSPID=LabOrgMSP
+      - CORE_PEER_MSPCONFIGPATH=/etc/hyperledger/fabric/msp
+      - CORE_OPERATIONS_LISTENADDRESS=peer0.lab.healthchain.com:9447
+      - CORE_METRICS_PROVIDER=prometheus
+      - CHAINCODE_AS_A_SERVICE_BUILDER_CONFIG={"peername":"peer0lab"}
+      - CORE_CHAINCODE_EXECUTETIMEOUT=300s
+      - CORE_LEDGER_STATE_STATEDATABASE=CouchDB
+      - CORE_LEDGER_STATE_COUCHDBCONFIG_COUCHDBADDRESS=couchdb.lab:5984
+      - CORE_LEDGER_STATE_COUCHDBCONFIG_USERNAME=admin
+      - CORE_LEDGER_STATE_COUCHDBCONFIG_PASSWORD=adminpw
+    volumes:
+      - ../config:/etc/hyperledger/peercfg
+      - ../organizations/peerOrganizations/lab.healthchain.com/peers/peer0.lab.healthchain.com:/etc/hyperledger/fabric
+      - peer0.lab.healthchain.com:/var/hyperledger/production
+    working_dir: /root
+    command: peer node start
+    ports:
+      - 10051:10051
+      - 9447:9447
+    networks:
+      - healthchain
+    depends_on:
+      - couchdb.lab
+
+  couchdb.lab:
+    container_name: couchdb.lab
+    image: couchdb:3.3.2
+    labels:
+      service: hyperledger-fabric
+    environment:
+      - COUCHDB_USER=admin
+      - COUCHDB_PASSWORD=adminpw
+    ports:
+      - 8984:5984
+    networks:
+      - healthchain
+
+  # PharmacyOrg Peer
+  peer0.pharmacy.healthchain.com:
+    container_name: peer0.pharmacy.healthchain.com
+    image: hyperledger/fabric-peer:2.5
+    labels:
+      service: hyperledger-fabric
+    environment:
+      - FABRIC_CFG_PATH=/etc/hyperledger/peercfg
+      - FABRIC_LOGGING_SPEC=INFO
+      - CORE_PEER_TLS_ENABLED=true
+      - CORE_PEER_PROFILE_ENABLED=false
+      - CORE_PEER_TLS_CERT_FILE=/etc/hyperledger/fabric/tls/server.crt
+      - CORE_PEER_TLS_KEY_FILE=/etc/hyperledger/fabric/tls/server.key
+      - CORE_PEER_TLS_ROOTCERT_FILE=/etc/hyperledger/fabric/tls/ca.crt
+      - CORE_PEER_ID=peer0.pharmacy.healthchain.com
+      - CORE_PEER_ADDRESS=peer0.pharmacy.healthchain.com:11051
+      - CORE_PEER_LISTENADDRESS=0.0.0.0:11051
+      - CORE_PEER_CHAINCODEADDRESS=peer0.pharmacy.healthchain.com:11052
+      - CORE_PEER_CHAINCODELISTENADDRESS=0.0.0.0:11052
+      - CORE_PEER_GOSSIP_EXTERNALENDPOINT=peer0.pharmacy.healthchain.com:11051
+      - CORE_PEER_GOSSIP_BOOTSTRAP=peer0.pharmacy.healthchain.com:11051
+      - CORE_PEER_LOCALMSPID=PharmacyOrgMSP
+      - CORE_PEER_MSPCONFIGPATH=/etc/hyperledger/fabric/msp
+      - CORE_OPERATIONS_LISTENADDRESS=peer0.pharmacy.healthchain.com:9448
+      - CORE_METRICS_PROVIDER=prometheus
+      - CHAINCODE_AS_A_SERVICE_BUILDER_CONFIG={"peername":"peer0pharmacy"}
+      - CORE_CHAINCODE_EXECUTETIMEOUT=300s
+      - CORE_LEDGER_STATE_STATEDATABASE=CouchDB
+      - CORE_LEDGER_STATE_COUCHDBCONFIG_COUCHDBADDRESS=couchdb.pharmacy:5984
+      - CORE_LEDGER_STATE_COUCHDBCONFIG_USERNAME=admin
+      - CORE_LEDGER_STATE_COUCHDBCONFIG_PASSWORD=adminpw
+    volumes:
+      - ../config:/etc/hyperledger/peercfg
+      - ../organizations/peerOrganizations/pharmacy.healthchain.com/peers/peer0.pharmacy.healthchain.com:/etc/hyperledger/fabric
+      - peer0.pharmacy.healthchain.com:/var/hyperledger/production
+    working_dir: /root
+    command: peer node start
+    ports:
+      - 11051:11051
+      - 9448:9448
+    networks:
+      - healthchain
+    depends_on:
+      - couchdb.pharmacy
+
+  couchdb.pharmacy:
+    container_name: couchdb.pharmacy
+    image: couchdb:3.3.2
+    labels:
+      service: hyperledger-fabric
+    environment:
+      - COUCHDB_USER=admin
+      - COUCHDB_PASSWORD=adminpw
+    ports:
+      - 9984:5984
+    networks:
+      - healthchain
+
+  # InsuranceOrg Peer
+  peer0.insurance.healthchain.com:
+    container_name: peer0.insurance.healthchain.com
+    image: hyperledger/fabric-peer:2.5
+    labels:
+      service: hyperledger-fabric
+    environment:
+      - FABRIC_CFG_PATH=/etc/hyperledger/peercfg
+      - FABRIC_LOGGING_SPEC=INFO
+      - CORE_PEER_TLS_ENABLED=true
+      - CORE_PEER_PROFILE_ENABLED=false
+      - CORE_PEER_TLS_CERT_FILE=/etc/hyperledger/fabric/tls/server.crt
+      - CORE_PEER_TLS_KEY_FILE=/etc/hyperledger/fabric/tls/server.key
+      - CORE_PEER_TLS_ROOTCERT_FILE=/etc/hyperledger/fabric/tls/ca.crt
+      - CORE_PEER_ID=peer0.insurance.healthchain.com
+      - CORE_PEER_ADDRESS=peer0.insurance.healthchain.com:12051
+      - CORE_PEER_LISTENADDRESS=0.0.0.0:12051
+      - CORE_PEER_CHAINCODEADDRESS=peer0.insurance.healthchain.com:12052
+      - CORE_PEER_CHAINCODELISTENADDRESS=0.0.0.0:12052
+      - CORE_PEER_GOSSIP_EXTERNALENDPOINT=peer0.insurance.healthchain.com:12051
+      - CORE_PEER_GOSSIP_BOOTSTRAP=peer0.insurance.healthchain.com:12051
+      - CORE_PEER_LOCALMSPID=InsuranceOrgMSP
+      - CORE_PEER_MSPCONFIGPATH=/etc/hyperledger/fabric/msp
+      - CORE_OPERATIONS_LISTENADDRESS=peer0.insurance.healthchain.com:9449
+      - CORE_METRICS_PROVIDER=prometheus
+      - CHAINCODE_AS_A_SERVICE_BUILDER_CONFIG={"peername":"peer0insurance"}
+      - CORE_CHAINCODE_EXECUTETIMEOUT=300s
+      - CORE_LEDGER_STATE_STATEDATABASE=CouchDB
+      - CORE_LEDGER_STATE_COUCHDBCONFIG_COUCHDBADDRESS=couchdb.insurance:5984
+      - CORE_LEDGER_STATE_COUCHDBCONFIG_USERNAME=admin
+      - CORE_LEDGER_STATE_COUCHDBCONFIG_PASSWORD=adminpw
+    volumes:
+      - ../config:/etc/hyperledger/peercfg
+      - ../organizations/peerOrganizations/insurance.healthchain.com/peers/peer0.insurance.healthchain.com:/etc/hyperledger/fabric
+      - peer0.insurance.healthchain.com:/var/hyperledger/production
+    working_dir: /root
+    command: peer node start
+    ports:
+      - 12051:12051
+      - 9449:9449
+    networks:
+      - healthchain
+    depends_on:
+      - couchdb.insurance
+
+  couchdb.insurance:
+    container_name: couchdb.insurance
+    image: couchdb:3.3.2
+    labels:
+      service: hyperledger-fabric
+    environment:
+      - COUCHDB_USER=admin
+      - COUCHDB_PASSWORD=adminpw
+    ports:
+      - 10984:5984
+    networks:
+      - healthchain
+
+  # CLI container for running commands
+  cli:
+    container_name: cli
+    image: hyperledger/fabric-tools:2.5
+    labels:
+      service: hyperledger-fabric
+    tty: true
+    stdin_open: true
+    environment:
+      - GOPATH=/opt/gopath
+      - FABRIC_LOGGING_SPEC=INFO
+      - FABRIC_CFG_PATH=/etc/hyperledger/peercfg
+    working_dir: /opt/gopath/src/github.com/hyperledger/fabric/peer
+    command: /bin/bash
+    volumes:
+      - ../organizations:/opt/gopath/src/github.com/hyperledger/fabric/peer/organizations
+      - ../../chaincode:/opt/gopath/src/github.com/hyperledger/fabric/peer/chaincode
+      - ../scripts:/opt/gopath/src/github.com/hyperledger/fabric/peer/scripts
+      - ../channel-artifacts:/opt/gopath/src/github.com/hyperledger/fabric/peer/channel-artifacts
+    depends_on:
+      - peer0.patient.healthchain.com
+      - peer0.hospitalA.healthchain.com
+      - peer0.hospitalB.healthchain.com
+      - peer0.lab.healthchain.com
+      - peer0.pharmacy.healthchain.com
+      - peer0.insurance.healthchain.com
+    networks:
+      - healthchain
