@@ -1,0 +1,193 @@
+name: Fabric Network Build & Test
+
+on:
+  push:
+    branches: [ main, feature/* ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  validate-and-build:
+    name: Build and Validate Network (Skill 01)
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Install Hyperledger Fabric binaries
+        run: |
+          echo "📦 Installing Fabric binaries..."
+          curl -sSL https://raw.githubusercontent.com/hyperledger/fabric/main/scripts/install-fabric.sh | bash -s -- binary
+          echo "$PWD/bin" >> $GITHUB_PATH
+          
+      - name: Verify Fabric tools installed
+        run: |
+          echo "✅ Verifying Fabric tools..."
+          cryptogen version
+          configtxgen --version
+          
+      - name: Check required files exist
+        run: |
+          echo "📋 Checking configuration files..."
+          test -f network/organizations/cryptogen/crypto-config.yaml || (echo "❌ crypto-config.yaml missing" && exit 1)
+          test -f network/docker/docker-compose.yml || (echo "❌ docker-compose.yml missing" && exit 1)
+          test -f network/scripts/01-generate-crypto.sh || (echo "❌ 01-generate-crypto.sh missing" && exit 1)
+          test -f network/scripts/02-start-network.sh || (echo "❌ 02-start-network.sh missing" && exit 1)
+          echo "✅ All required files present"
+      
+      - name: Validate YAML syntax
+        run: |
+          echo "🔍 Validating YAML syntax..."
+          pip install yamllint
+          yamllint -d "{extends: default, rules: {line-length: {max: 200}}}" network/organizations/cryptogen/crypto-config.yaml
+          yamllint -d "{extends: default, rules: {line-length: {max: 200}}}" network/docker/docker-compose.yml
+          echo "✅ YAML syntax valid"
+      
+      - name: Generate crypto material
+        run: |
+          echo "🔐 Generating crypto material..."
+          cd network/scripts
+          chmod +x 01-generate-crypto.sh
+          ./01-generate-crypto.sh
+          
+      - name: Verify crypto material generated
+        run: |
+          echo "🔍 Verifying crypto material..."
+          
+          # Check orderer crypto
+          test -d network/organizations/ordererOrganizations/orderer.healthchain.com || (echo "❌ Orderer crypto missing" && exit 1)
+          echo "✅ Orderer crypto generated"
+          
+          # Check peer organizations crypto
+          for org in patient hospitalA hospitalB lab pharmacy insurance; do
+            test -d network/organizations/peerOrganizations/$org.healthchain.com || (echo "❌ $org crypto missing" && exit 1)
+            echo "✅ $org crypto generated"
+          done
+          
+      - name: Download Fabric config files
+        run: |
+          echo "📥 Downloading Fabric config files..."
+          mkdir -p network/config
+          curl -sSL https://raw.githubusercontent.com/hyperledger/fabric/release-2.5/sampleconfig/core.yaml -o network/config/core.yaml
+          curl -sSL https://raw.githubusercontent.com/hyperledger/fabric/release-2.5/sampleconfig/orderer.yaml -o network/config/orderer.yaml
+          echo "✅ Config files downloaded"
+          
+      - name: Start Fabric network
+        run: |
+          echo "🚀 Starting Hyperledger Fabric network..."
+          cd network/docker
+          docker-compose up -d
+          echo "⏳ Waiting for containers to initialize..."
+          sleep 15
+          
+      - name: Verify all containers running
+        run: |
+          echo "🔍 Verifying containers..."
+          
+          RUNNING=$(docker ps --format '{{.Names}}' | wc -l)
+          echo "Running containers: $RUNNING"
+          
+          if [ "$RUNNING" -ne 14 ]; then
+            echo "❌ Expected 14 containers, found $RUNNING"
+            docker ps -a
+            exit 1
+          fi
+          
+          echo "✅ All 14 containers running"
+          docker ps --format "table {{.Names}}\t{{.Status}}"
+          
+      - name: Check orderer is running
+        run: |
+          echo "🔍 Checking orderer..."
+          docker ps | grep orderer.orderer.healthchain.com || (echo "❌ Orderer not running" && exit 1)
+          docker logs orderer.orderer.healthchain.com 2>&1 | tail -20
+          echo "✅ Orderer is running"
+          
+      - name: Check all peers are running
+        run: |
+          echo "🔍 Checking peers..."
+          
+          for peer in patient hospitalA hospitalB lab pharmacy insurance; do
+            docker ps | grep peer0.$peer.healthchain.com || (echo "❌ Peer $peer not running" && exit 1)
+            
+            # Check for errors in logs
+            if docker logs peer0.$peer.healthchain.com 2>&1 | grep -i "fatal\|panic"; then
+              echo "❌ Peer $peer has errors"
+              docker logs peer0.$peer.healthchain.com 2>&1 | tail -20
+              exit 1
+            fi
+            
+            echo "✅ Peer $peer is running"
+          done
+          
+      - name: Check all CouchDB instances running
+        run: |
+          echo "🔍 Checking CouchDB instances..."
+          
+          for db in patient hospitalA hospitalB lab pharmacy insurance; do
+            docker ps | grep couchdb.$db || (echo "❌ CouchDB $db not running" && exit 1)
+            echo "✅ CouchDB $db is running"
+          done
+          
+      - name: Verify port accessibility
+        run: |
+          echo "🔍 Verifying ports..."
+          
+          # Check orderer port
+          docker exec cli sh -c "nc -zv orderer.orderer.healthchain.com 7050" || (echo "❌ Orderer port 7050 not accessible" && exit 1)
+          echo "✅ Orderer port 7050 accessible"
+          
+          # Check peer ports
+          declare -A ports=(
+            ["peer0.patient.healthchain.com"]="7051"
+            ["peer0.hospitalA.healthchain.com"]="8051"
+            ["peer0.hospitalB.healthchain.com"]="9051"
+            ["peer0.lab.healthchain.com"]="10051"
+            ["peer0.pharmacy.healthchain.com"]="11051"
+            ["peer0.insurance.healthchain.com"]="12051"
+          )
+          
+          for peer in "${!ports[@]}"; do
+            port="${ports[$peer]}"
+            docker exec cli sh -c "nc -zv $peer $port" || (echo "❌ $peer port $port not accessible" && exit 1)
+            echo "✅ $peer port $port accessible"
+          done
+          
+      - name: Success Summary (Skill 01 Complete)
+        if: success()
+        run: |
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+          echo "✅ SKILL 01: NETWORK SETUP - ALL VALIDATION CHECKS PASSED!"
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+          echo ""
+          echo "Success Criteria Met:"
+          echo "  ✅ 14 containers running (1 orderer + 6 peers + 6 CouchDBs + 1 CLI)"
+          echo "  ✅ No errors in container logs"
+          echo "  ✅ Crypto material generated for all 7 organizations"
+          echo "  ✅ Peer ports accessible (7051, 8051, 9051, 10051, 11051, 12051)"
+          echo "  ✅ Orderer port accessible (7050)"
+          echo ""
+          echo "Network Status:"
+          docker ps --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}"
+          echo ""
+          echo "🎉 Ready for Skill 03: Channel Creation!"
+          
+      - name: Cleanup on failure
+        if: failure()
+        run: |
+          echo "❌ Tests failed. Showing container status and logs..."
+          docker ps -a
+          echo ""
+          echo "=== Orderer Logs ==="
+          docker logs orderer.orderer.healthchain.com 2>&1 | tail -50 || true
+          echo ""
+          echo "=== Patient Peer Logs ==="
+          docker logs peer0.patient.healthchain.com 2>&1 | tail -50 || true
+          
+      - name: Cleanup
+        if: always()
+        run: |
+          echo "🧹 Cleaning up..."
+          cd network/docker
+          docker-compose down -v || true
