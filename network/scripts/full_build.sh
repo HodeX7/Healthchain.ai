@@ -5,6 +5,11 @@ set -e  # Exit on any error
 # Change to the scripts directory
 cd "$(dirname "$0")"
 
+echo "🧹 Cleaning up any existing containers and volumes..."
+cd ../docker
+docker compose down -v 2>/dev/null || true
+cd ../scripts
+
 echo "Step 1: Generating crypto material..."
 ./01-generate-crypto.sh
 echo ""
