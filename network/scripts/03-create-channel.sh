@@ -5,13 +5,13 @@ export FABRIC_CFG_PATH=${PWD}/../configtx
 export ORDERER_CA=${PWD}/../organizations/ordererOrganizations/orderer.healthchain.com/orderers/orderer.orderer.healthchain.com/msp/tlscacerts/tlsca.orderer.healthchain.com-cert.pem
 
 CHANNEL_NAME="healthchain-channel"
-CHANNEL_ARTIFACTS_DIR="../channel-artifacts"
+CHANNEL_ARTIFACTS_DIR="${PWD}/../channel-artifacts"
 
-# Create channel artifacts directory
+# Create channel artifacts directory with absolute path
 echo "Creating channel artifacts directory..."
-mkdir -p ${CHANNEL_ARTIFACTS_DIR}
+mkdir -p "${CHANNEL_ARTIFACTS_DIR}"
 if [ ! -d "${CHANNEL_ARTIFACTS_DIR}" ]; then
-  echo "Failed to create channel artifacts directory"
+  echo "Failed to create channel artifacts directory at ${CHANNEL_ARTIFACTS_DIR}"
   exit 1
 fi
 
