@@ -1,6 +1,7 @@
 'use strict';
 
 const { Contract } = require('fabric-contract-api');
+const { getTimestamp } = require('./utils');
 const PatientFunctions = require('./patient-functions');
 const HospitalFunctions = require('./hospital-functions');
 const LabFunctions = require('./lab-functions');
@@ -21,7 +22,7 @@ class HealthchainContract extends Contract {
       docType: 'networkMetadata',
       version: '1.0.0',
       hospitals: ['HospitalAOrgMSP', 'HospitalBOrgMSP'],
-      createdAt: new Date().toISOString()
+      createdAt: getTimestamp(ctx)
     };
     
     await ctx.stub.putState('NETWORK_METADATA', Buffer.from(JSON.stringify(networkMetadata)));
@@ -42,7 +43,7 @@ class HealthchainContract extends Contract {
       docType: 'networkMetadata',
       version: '1.0.0', 
       hospitals: hospitals,
-      updatedAt: new Date().toISOString()
+      updatedAt: getTimestamp(ctx)
     };
     
     // Overwrite existing state

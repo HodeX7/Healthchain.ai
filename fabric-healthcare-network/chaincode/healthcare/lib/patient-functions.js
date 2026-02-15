@@ -1,6 +1,6 @@
 'use strict';
 
-const { createAuditLog, getPDCName, verifyIdentity, verifyPatientOwnership, getNetworkMetadata } = require('./utils');
+const { createAuditLog, getPDCName, verifyIdentity, verifyPatientOwnership, getNetworkMetadata, getTimestamp } = require('./utils');
 
 class PatientFunctions {
   static async getNetworkMetadata(ctx) {
@@ -28,8 +28,8 @@ class PatientFunctions {
       bloodGroup,
       email,
       phone,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString()
+      createdAt: getTimestamp(ctx),
+      updatedAt: getTimestamp(ctx)
     };
     
     await ctx.stub.putState(patientId, Buffer.from(JSON.stringify(patient)));
@@ -39,7 +39,7 @@ class PatientFunctions {
       action: 'REGISTER_PATIENT',
       patientId,
       actor: ctx.clientIdentity.getID(),
-      timestamp: new Date().toISOString()
+      timestamp: getTimestamp(ctx)
     });
     
     return JSON.stringify(patient);
@@ -75,7 +75,7 @@ class PatientFunctions {
       }
     }
     
-    patient.updatedAt = new Date().toISOString();
+    patient.updatedAt = getTimestamp(ctx);
     
     await ctx.stub.putState(patientId, Buffer.from(JSON.stringify(patient)));
     
@@ -106,7 +106,7 @@ class PatientFunctions {
       hospitalOrg,
       status: 'active',
       authorizedPDCs, // List of PDCs hospital can access
-      grantedAt: new Date().toISOString(),
+      grantedAt: getTimestamp(ctx),
       revokedAt: null,
       grantedBy: ctx.clientIdentity.getID()
     };
@@ -119,7 +119,7 @@ class PatientFunctions {
       patientId,
       hospitalOrg,
       actor: ctx.clientIdentity.getID(),
-      timestamp: new Date().toISOString()
+      timestamp: getTimestamp(ctx)
     });
     
     // Emit event
@@ -150,7 +150,7 @@ class PatientFunctions {
     
     // Update consent status
     consent.status = 'revoked';
-    consent.revokedAt = new Date().toISOString();
+    consent.revokedAt = getTimestamp(ctx);
     consent.revokedBy = ctx.clientIdentity.getID();
     
     await ctx.stub.putState(consentKey, Buffer.from(JSON.stringify(consent)));
@@ -161,7 +161,7 @@ class PatientFunctions {
       patientId,
       hospitalOrg,
       actor: ctx.clientIdentity.getID(),
-      timestamp: new Date().toISOString()
+      timestamp: getTimestamp(ctx)
     });
     
     // Emit event

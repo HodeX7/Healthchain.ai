@@ -81,13 +81,16 @@ services:
       - CORE_PEER_MSPCONFIGPATH=/etc/hyperledger/fabric/msp
       - CORE_OPERATIONS_LISTENADDRESS=peer0.patient.healthchain.com:9444
       - CORE_METRICS_PROVIDER=prometheus
-      - CHAINCODE_AS_A_SERVICE_BUILDER_CONFIG={"peername":"peer0patient"}
+
       - CORE_CHAINCODE_EXECUTETIMEOUT=300s
       - CORE_LEDGER_STATE_STATEDATABASE=CouchDB
       - CORE_LEDGER_STATE_COUCHDBCONFIG_COUCHDBADDRESS=couchdb.patient:5984
       - CORE_LEDGER_STATE_COUCHDBCONFIG_USERNAME=admin
       - CORE_LEDGER_STATE_COUCHDBCONFIG_PASSWORD=adminpw
+      - CORE_VM_ENDPOINT=unix:///host/var/run/docker.sock
+      - CORE_VM_DOCKER_HOSTCONFIG_NETWORKMODE=fabric_healthchain
     volumes:
+      - /var/run/docker.sock:/host/var/run/docker.sock
       - ../config:/etc/hyperledger/peercfg
       - ../organizations/peerOrganizations/patient.healthchain.com/peers/peer0.patient.healthchain.com:/etc/hyperledger/fabric
       - peer0.patient.healthchain.com:/var/hyperledger/production
@@ -139,13 +142,16 @@ services:
       - CORE_PEER_MSPCONFIGPATH=/etc/hyperledger/fabric/msp
       - CORE_OPERATIONS_LISTENADDRESS=peer0.hospitalA.healthchain.com:9445
       - CORE_METRICS_PROVIDER=prometheus
-      - CHAINCODE_AS_A_SERVICE_BUILDER_CONFIG={"peername":"peer0hospitalA"}
+
       - CORE_CHAINCODE_EXECUTETIMEOUT=300s
       - CORE_LEDGER_STATE_STATEDATABASE=CouchDB
       - CORE_LEDGER_STATE_COUCHDBCONFIG_COUCHDBADDRESS=couchdb.hospitalA:5984
       - CORE_LEDGER_STATE_COUCHDBCONFIG_USERNAME=admin
       - CORE_LEDGER_STATE_COUCHDBCONFIG_PASSWORD=adminpw
+      - CORE_VM_ENDPOINT=unix:///host/var/run/docker.sock
+      - CORE_VM_DOCKER_HOSTCONFIG_NETWORKMODE=fabric_healthchain
     volumes:
+      - /var/run/docker.sock:/host/var/run/docker.sock
       - ../config:/etc/hyperledger/peercfg
       - ../organizations/peerOrganizations/hospitalA.healthchain.com/peers/peer0.hospitalA.healthchain.com:/etc/hyperledger/fabric
       - peer0.hospitalA.healthchain.com:/var/hyperledger/production
@@ -197,13 +203,16 @@ services:
       - CORE_PEER_MSPCONFIGPATH=/etc/hyperledger/fabric/msp
       - CORE_OPERATIONS_LISTENADDRESS=peer0.hospitalB.healthchain.com:9446
       - CORE_METRICS_PROVIDER=prometheus
-      - CHAINCODE_AS_A_SERVICE_BUILDER_CONFIG={"peername":"peer0hospitalB"}
+
       - CORE_CHAINCODE_EXECUTETIMEOUT=300s
       - CORE_LEDGER_STATE_STATEDATABASE=CouchDB
       - CORE_LEDGER_STATE_COUCHDBCONFIG_COUCHDBADDRESS=couchdb.hospitalB:5984
       - CORE_LEDGER_STATE_COUCHDBCONFIG_USERNAME=admin
       - CORE_LEDGER_STATE_COUCHDBCONFIG_PASSWORD=adminpw
+      - CORE_VM_ENDPOINT=unix:///host/var/run/docker.sock
+      - CORE_VM_DOCKER_HOSTCONFIG_NETWORKMODE=fabric_healthchain
     volumes:
+      - /var/run/docker.sock:/host/var/run/docker.sock
       - ../config:/etc/hyperledger/peercfg
       - ../organizations/peerOrganizations/hospitalB.healthchain.com/peers/peer0.hospitalB.healthchain.com:/etc/hyperledger/fabric
       - peer0.hospitalB.healthchain.com:/var/hyperledger/production
@@ -255,13 +264,16 @@ services:
       - CORE_PEER_MSPCONFIGPATH=/etc/hyperledger/fabric/msp
       - CORE_OPERATIONS_LISTENADDRESS=peer0.lab.healthchain.com:9447
       - CORE_METRICS_PROVIDER=prometheus
-      - CHAINCODE_AS_A_SERVICE_BUILDER_CONFIG={"peername":"peer0lab"}
+
       - CORE_CHAINCODE_EXECUTETIMEOUT=300s
       - CORE_LEDGER_STATE_STATEDATABASE=CouchDB
       - CORE_LEDGER_STATE_COUCHDBCONFIG_COUCHDBADDRESS=couchdb.lab:5984
       - CORE_LEDGER_STATE_COUCHDBCONFIG_USERNAME=admin
       - CORE_LEDGER_STATE_COUCHDBCONFIG_PASSWORD=adminpw
+      - CORE_VM_ENDPOINT=unix:///host/var/run/docker.sock
+      - CORE_VM_DOCKER_HOSTCONFIG_NETWORKMODE=fabric_healthchain
     volumes:
+      - /var/run/docker.sock:/host/var/run/docker.sock
       - ../config:/etc/hyperledger/peercfg
       - ../organizations/peerOrganizations/lab.healthchain.com/peers/peer0.lab.healthchain.com:/etc/hyperledger/fabric
       - peer0.lab.healthchain.com:/var/hyperledger/production
@@ -313,13 +325,16 @@ services:
       - CORE_PEER_MSPCONFIGPATH=/etc/hyperledger/fabric/msp
       - CORE_OPERATIONS_LISTENADDRESS=peer0.pharmacy.healthchain.com:9448
       - CORE_METRICS_PROVIDER=prometheus
-      - CHAINCODE_AS_A_SERVICE_BUILDER_CONFIG={"peername":"peer0pharmacy"}
+
       - CORE_CHAINCODE_EXECUTETIMEOUT=300s
       - CORE_LEDGER_STATE_STATEDATABASE=CouchDB
       - CORE_LEDGER_STATE_COUCHDBCONFIG_COUCHDBADDRESS=couchdb.pharmacy:5984
       - CORE_LEDGER_STATE_COUCHDBCONFIG_USERNAME=admin
       - CORE_LEDGER_STATE_COUCHDBCONFIG_PASSWORD=adminpw
+      - CORE_VM_ENDPOINT=unix:///host/var/run/docker.sock
+      - CORE_VM_DOCKER_HOSTCONFIG_NETWORKMODE=fabric_healthchain
     volumes:
+      - /var/run/docker.sock:/host/var/run/docker.sock
       - ../config:/etc/hyperledger/peercfg
       - ../organizations/peerOrganizations/pharmacy.healthchain.com/peers/peer0.pharmacy.healthchain.com:/etc/hyperledger/fabric
       - peer0.pharmacy.healthchain.com:/var/hyperledger/production
@@ -371,13 +386,16 @@ services:
       - CORE_PEER_MSPCONFIGPATH=/etc/hyperledger/fabric/msp
       - CORE_OPERATIONS_LISTENADDRESS=peer0.insurance.healthchain.com:9449
       - CORE_METRICS_PROVIDER=prometheus
-      - CHAINCODE_AS_A_SERVICE_BUILDER_CONFIG={"peername":"peer0insurance"}
+
       - CORE_CHAINCODE_EXECUTETIMEOUT=300s
       - CORE_LEDGER_STATE_STATEDATABASE=CouchDB
       - CORE_LEDGER_STATE_COUCHDBCONFIG_COUCHDBADDRESS=couchdb.insurance:5984
       - CORE_LEDGER_STATE_COUCHDBCONFIG_USERNAME=admin
       - CORE_LEDGER_STATE_COUCHDBCONFIG_PASSWORD=adminpw
+      - CORE_VM_ENDPOINT=unix:///host/var/run/docker.sock
+      - CORE_VM_DOCKER_HOSTCONFIG_NETWORKMODE=fabric_healthchain
     volumes:
+      - /var/run/docker.sock:/host/var/run/docker.sock
       - ../config:/etc/hyperledger/peercfg
       - ../organizations/peerOrganizations/insurance.healthchain.com/peers/peer0.insurance.healthchain.com:/etc/hyperledger/fabric
       - peer0.insurance.healthchain.com:/var/hyperledger/production

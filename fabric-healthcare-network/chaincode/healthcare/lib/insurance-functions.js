@@ -1,5 +1,5 @@
 'use strict';
-const { getPDCName, verifyIdentity } = require('./utils');
+const { getPDCName, verifyIdentity, getTimestamp } = require('./utils');
 
 class InsuranceFunctions {
   static async viewClaims(ctx, status) {
@@ -41,7 +41,7 @@ class InsuranceFunctions {
           claim.status = 'approved';
           claim.approvedAmount = approvedAmount;
           claim.reviewedBy = ctx.clientIdentity.getID();
-          claim.reviewedAt = new Date().toISOString();
+          claim.reviewedAt = getTimestamp(ctx);
           claim.notes = notes;
           
           await ctx.stub.putPrivateData(pdcName, claimId, Buffer.from(JSON.stringify(claim)));
@@ -70,7 +70,7 @@ class InsuranceFunctions {
           claim.status = 'denied';
           claim.denialReason = reason;
           claim.reviewedBy = ctx.clientIdentity.getID();
-          claim.reviewedAt = new Date().toISOString();
+          claim.reviewedAt = getTimestamp(ctx);
           
           await ctx.stub.putPrivateData(pdcName, claimId, Buffer.from(JSON.stringify(claim)));
           

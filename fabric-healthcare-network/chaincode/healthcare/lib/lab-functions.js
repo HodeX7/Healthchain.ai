@@ -1,5 +1,5 @@
 'use strict';
-const { getPDCName, verifyIdentity, createAuditLog } = require('./utils');
+const { getPDCName, verifyIdentity, createAuditLog, getTimestamp } = require('./utils');
 
 class LabFunctions {
   static async viewLabOrders(ctx, labOrg) {
@@ -39,7 +39,7 @@ class LabFunctions {
       s3Key,
       fileHash,
       status: 'completed',
-      completedAt: new Date().toISOString()
+      completedAt: getTimestamp(ctx)
     };
     
     // Store in hospital-specific lab PDC
@@ -55,7 +55,7 @@ class LabFunctions {
       patientId,
       reportId,
       actor: ctx.clientIdentity.getID(),
-      timestamp: new Date().toISOString()
+      timestamp: getTimestamp(ctx)
     });
     
     return JSON.stringify(report);

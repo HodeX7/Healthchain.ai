@@ -1,5 +1,5 @@
 'use strict';
-const { getPDCName, verifyIdentity } = require('./utils');
+const { getPDCName, verifyIdentity, getTimestamp } = require('./utils');
 
 class PharmacyFunctions {
   static async viewPrescriptions(ctx, status) {
@@ -40,7 +40,7 @@ class PharmacyFunctions {
           const prescription = JSON.parse(prescriptionBytes.toString());
           prescription.status = 'fulfilled';
           prescription.fulfilledBy = ctx.clientIdentity.getID();
-          prescription.fulfilledAt = new Date().toISOString();
+          prescription.fulfilledAt = getTimestamp(ctx);
           
           await ctx.stub.putPrivateData(pdcName, prescriptionId, Buffer.from(JSON.stringify(prescription)));
           return JSON.stringify(prescription);

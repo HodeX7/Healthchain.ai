@@ -1,6 +1,6 @@
 'use strict';
 
-const { createAuditLog, getPDCName, verifyIdentity, getConsent } = require('./utils');
+const { createAuditLog, getPDCName, verifyIdentity, getConsent, getTimestamp } = require('./utils');
 
 class HospitalFunctions {
   
@@ -24,7 +24,7 @@ class HospitalFunctions {
       patientId,
       hospitalOrg: callerMSP,
       status: 'pending',
-      requestedAt: new Date().toISOString(),
+      requestedAt: getTimestamp(ctx),
       requestedBy: ctx.clientIdentity.getID()
     };
     
@@ -82,8 +82,8 @@ class HospitalFunctions {
       notes,
       s3Key,
       fileHash,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString()
+      createdAt: getTimestamp(ctx),
+      updatedAt: getTimestamp(ctx)
     };
     
     // Store in hospital-specific PDC
@@ -99,7 +99,7 @@ class HospitalFunctions {
       recordId,
       hospitalOrg: callerMSP,
       actor: ctx.clientIdentity.getID(),
-      timestamp: new Date().toISOString()
+      timestamp: getTimestamp(ctx)
     });
     
     return JSON.stringify(record);
@@ -153,7 +153,7 @@ class HospitalFunctions {
       hospitalOrg: callerMSP,
       recordCount: allRecords.length,
       actor: ctx.clientIdentity.getID(),
-      timestamp: new Date().toISOString()
+      timestamp: getTimestamp(ctx)
     });
     
     return JSON.stringify(allRecords);
@@ -178,7 +178,7 @@ class HospitalFunctions {
       urgency, // routine, urgent, stat
       status: 'ordered',
       notes,
-      orderedAt: new Date().toISOString()
+      orderedAt: getTimestamp(ctx)
     };
     
     await ctx.stub.putState(orderId, Buffer.from(JSON.stringify(order)));
@@ -209,7 +209,7 @@ class HospitalFunctions {
       medications,
       diagnosis,
       status: 'issued',
-      issuedAt: new Date().toISOString(),
+      issuedAt: getTimestamp(ctx),
       validUntil
     };
     
@@ -234,7 +234,7 @@ class HospitalFunctions {
       procedures,
       totalAmount,
       status: 'submitted',
-      submittedAt: new Date().toISOString()
+      submittedAt: getTimestamp(ctx)
     };
     
     // Store in hospital-specific insurance PDC
