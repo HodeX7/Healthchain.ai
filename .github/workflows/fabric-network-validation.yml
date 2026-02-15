@@ -28,6 +28,13 @@ jobs:
           curl -sSL https://raw.githubusercontent.com/hyperledger/fabric/release-2.5/sampleconfig/orderer.yaml -o network/config/orderer.yaml
           echo "✅ Config files downloaded"
           
+      - name: Create channel artifacts directory
+        run: |
+          echo "📁 Creating channel artifacts directory..."
+          mkdir -p network/channel-artifacts
+          chmod 755 network/channel-artifacts
+          echo "✅ Directory created with proper permissions"
+          
       - name: Run full network build
         run: |
           echo "🚀 Running full Fabric network build..."
