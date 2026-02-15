@@ -1,0 +1,98 @@
+[
+  {
+    "name": "collectionMedicalRecords_HospitalA",
+    "policy": "OR('PatientOrgMSP.member', 'HospitalAOrgMSP.member')",
+    "requiredPeerCount": 0,
+    "maxPeerCount": 2,
+    "blockToLive": 0,
+    "memberOnlyRead": true,
+    "memberOnlyWrite": true,
+    "endorsementPolicy": {
+      "signaturePolicy": "OR('HospitalAOrgMSP.member', 'PatientOrgMSP.member')"
+    }
+  },
+  {
+    "name": "collectionLabReports_HospitalA",
+    "policy": "OR('PatientOrgMSP.member', 'HospitalAOrgMSP.member', 'LabOrgMSP.member')",
+    "requiredPeerCount": 0,
+    "maxPeerCount": 3,
+    "blockToLive": 0,
+    "memberOnlyRead": true,
+    "memberOnlyWrite": false,
+    "endorsementPolicy": {
+      "signaturePolicy": "OR('HospitalAOrgMSP.member', 'LabOrgMSP.member')"
+    }
+  },
+  {
+    "name": "collectionPrescriptions_HospitalA",
+    "policy": "OR('PatientOrgMSP.member', 'HospitalAOrgMSP.member', 'PharmacyOrgMSP.member')",
+    "requiredPeerCount": 0,
+    "maxPeerCount": 3,
+    "blockToLive": 0,
+    "memberOnlyRead": true,
+    "memberOnlyWrite": false,
+    "endorsementPolicy": {
+      "signaturePolicy": "OR('HospitalAOrgMSP.member', 'PharmacyOrgMSP.member')"
+    }
+  },
+  {
+    "name": "collectionInsuranceClaims_HospitalA",
+    "policy": "OR('PatientOrgMSP.member', 'HospitalAOrgMSP.member', 'InsuranceOrgMSP.member')",
+    "requiredPeerCount": 0,
+    "maxPeerCount": 3,
+    "blockToLive": 0,
+    "memberOnlyRead": true,
+    "memberOnlyWrite": false,
+    "endorsementPolicy": {
+      "signaturePolicy": "OR('HospitalAOrgMSP.member', 'InsuranceOrgMSP.member')"
+    }
+  },
+  {
+    "name": "collectionMedicalRecords_HospitalB",
+    "policy": "OR('PatientOrgMSP.member', 'HospitalBOrgMSP.member')",
+    "requiredPeerCount": 0,
+    "maxPeerCount": 2,
+    "blockToLive": 0,
+    "memberOnlyRead": true,
+    "memberOnlyWrite": true,
+    "endorsementPolicy": {
+      "signaturePolicy": "OR('HospitalBOrgMSP.member', 'PatientOrgMSP.member')"
+    }
+  },
+  {
+    "name": "collectionLabReports_HospitalB",
+    "policy": "OR('PatientOrgMSP.member', 'HospitalBOrgMSP.member', 'LabOrgMSP.member')",
+    "requiredPeerCount": 0,
+    "maxPeerCount": 3,
+    "blockToLive": 0,
+    "memberOnlyRead": true,
+    "memberOnlyWrite": false,
+    "endorsementPolicy": {
+      "signaturePolicy": "OR('HospitalBOrgMSP.member', 'LabOrgMSP.member')"
+    }
+  },
+  {
+    "name": "collectionPrescriptions_HospitalB",
+    "policy": "OR('PatientOrgMSP.member', 'HospitalBOrgMSP.member', 'PharmacyOrgMSP.member')",
+    "requiredPeerCount": 0,
+    "maxPeerCount": 3,
+    "blockToLive": 0,
+    "memberOnlyRead": true,
+    "memberOnlyWrite": false,
+    "endorsementPolicy": {
+      "signaturePolicy": "OR('HospitalBOrgMSP.member', 'PharmacyOrgMSP.member')"
+    }
+  },
+  {
+    "name": "collectionInsuranceClaims_HospitalB",
+    "policy": "OR('PatientOrgMSP.member', 'HospitalBOrgMSP.member', 'InsuranceOrgMSP.member')",
+    "requiredPeerCount": 0,
+    "maxPeerCount": 3,
+    "blockToLive": 0,
+    "memberOnlyRead": true,
+    "memberOnlyWrite": false,
+    "endorsementPolicy": {
+      "signaturePolicy": "OR('HospitalBOrgMSP.member', 'InsuranceOrgMSP.member')"
+    }
+  }
+]
