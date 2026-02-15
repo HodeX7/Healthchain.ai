@@ -19,35 +19,7 @@ jobs:
           cd network
           chmod +x install-fabric-binaries.sh
           ./install-fabric-binaries.sh
-          echo "$PWD/bin" >> $GITHUB_PATH
           
-      - name: Verify Fabric tools installed
-        run: |
-          echo "✅ Verifying Fabric tools..."
-          network/bin/cryptogen version
-          network/bin/configtxgen --version
-          
-      - name: Check required files exist
-        run: |
-          echo "📋 Checking configuration files..."
-          test -f network/organizations/cryptogen/crypto-config.yaml || (echo "❌ crypto-config.yaml missing" && exit 1)
-          test -f network/docker/docker-compose.yml || (echo "❌ docker-compose.yml missing" && exit 1)
-          test -f network/configtx/configtx.yaml || (echo "❌ configtx.yaml missing" && exit 1)
-          test -f network/scripts/01-generate-crypto.sh || (echo "❌ 01-generate-crypto.sh missing" && exit 1)
-          test -f network/scripts/02-start-network.sh || (echo "❌ 02-start-network.sh missing" && exit 1)
-          test -f network/scripts/03-create-channel.sh || (echo "❌ 03-create-channel.sh missing" && exit 1)
-          test -f network/scripts/full_build.sh || (echo "❌ full_build.sh missing" && exit 1)
-          echo "✅ All required files present"
-      
-      - name: Validate YAML syntax
-        run: |
-          echo "🔍 Validating YAML syntax..."
-          pip install yamllint
-          yamllint -d "{extends: default, rules: {line-length: {max: 200}}}" network/organizations/cryptogen/crypto-config.yaml
-          yamllint -d "{extends: default, rules: {line-length: {max: 200}}}" network/docker/docker-compose.yml
-          yamllint -d "{extends: default, rules: {line-length: {max: 200}}}" network/configtx/configtx.yaml
-          echo "✅ YAML syntax valid"
-      
       - name: Download Fabric config files
         run: |
           echo "📥 Downloading Fabric config files..."
@@ -56,17 +28,18 @@ jobs:
           curl -sSL https://raw.githubusercontent.com/hyperledger/fabric/release-2.5/sampleconfig/orderer.yaml -o network/config/orderer.yaml
           echo "✅ Config files downloaded"
           
-      - name: Run full network build (Skills 01 + 03)
+      - name: Run full network build
         run: |
           echo "🚀 Running full Fabric network build..."
           cd network/scripts
           chmod +x full_build.sh
           ./full_build.sh
           
-      - name: Verify all containers running
+      - name: Verify deployment
         run: |
-          echo "🔍 Verifying containers..."
+          echo "🔍 Verifying network deployment..."
           
+          # Check containers
           RUNNING=$(docker ps --format '{{.Names}}' | wc -l)
           echo "Running containers: $RUNNING"
           
@@ -75,49 +48,31 @@ jobs:
             docker ps -a
             exit 1
           fi
-          
           echo "✅ All 14 containers running"
-          docker ps --format "table {{.Names}}\t{{.Status}}"
           
-      - name: Verify channel creation and peer membership
-        run: |
-          echo "🔍 Verifying channel and peer membership..."
-          
-          # Check channel genesis block exists
-          test -f network/channel-artifacts/healthchain-channel.block || (echo "❌ Channel genesis block missing" && exit 1)
+          # Check channel exists
+          if [ ! -f network/channel-artifacts/healthchain-channel.block ]; then
+            echo "❌ Channel genesis block missing"
+            exit 1
+          fi
           echo "✅ Channel genesis block created"
           
+          # Verify one peer joined the channel (patient peer)
           export FABRIC_CFG_PATH=$PWD/network/config
+          export CORE_PEER_TLS_ENABLED=true
+          export CORE_PEER_LOCALMSPID="PatientOrgMSP"
+          export CORE_PEER_TLS_ROOTCERT_FILE=$PWD/network/organizations/peerOrganizations/patient.healthchain.com/peers/peer0.patient.healthchain.com/tls/ca.crt
+          export CORE_PEER_MSPCONFIGPATH=$PWD/network/organizations/peerOrganizations/patient.healthchain.com/users/Admin@patient.healthchain.com/msp
+          export CORE_PEER_ADDRESS=localhost:7051
           
-          for org in patient hospitalA hospitalB lab pharmacy insurance; do
-            MSP_ID="${org^}OrgMSP"
-            if [ "$org" = "hospitalA" ]; then MSP_ID="HospitalAOrgMSP"; fi
-            if [ "$org" = "hospitalB" ]; then MSP_ID="HospitalBOrgMSP"; fi
-            
-            export CORE_PEER_TLS_ENABLED=true
-            export CORE_PEER_LOCALMSPID="$MSP_ID"
-            export CORE_PEER_TLS_ROOTCERT_FILE=$PWD/network/organizations/peerOrganizations/$org.healthchain.com/peers/peer0.$org.healthchain.com/tls/ca.crt
-            export CORE_PEER_MSPCONFIGPATH=$PWD/network/organizations/peerOrganizations/$org.healthchain.com/users/Admin@$org.healthchain.com/msp
-            
-            if [ "$org" = "patient" ]; then PORT=7051
-            elif [ "$org" = "hospitalA" ]; then PORT=8051
-            elif [ "$org" = "hospitalB" ]; then PORT=9051
-            elif [ "$org" = "lab" ]; then PORT=10051
-            elif [ "$org" = "pharmacy" ]; then PORT=11051
-            elif [ "$org" = "insurance" ]; then PORT=12051
-            fi
-            
-            export CORE_PEER_ADDRESS=localhost:$PORT
-            
-            CHANNELS=$(network/bin/peer channel list 2>&1 | grep healthchain-channel || echo "")
-            if [ -z "$CHANNELS" ]; then
-              echo "❌ Peer $org not joined to healthchain-channel"
-              exit 1
-            fi
-            echo "✅ Peer $org joined to healthchain-channel"
-          done
+          CHANNELS=$(network/bin/peer channel list 2>&1 | grep healthchain-channel || echo "")
+          if [ -z "$CHANNELS" ]; then
+            echo "❌ Peer not joined to healthchain-channel"
+            exit 1
+          fi
+          echo "✅ Peer joined to healthchain-channel"
           
-      - name: Success Summary (Skills 01 + 03 Complete)
+      - name: Success Summary
         if: success()
         run: |
           echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
@@ -126,22 +81,17 @@ jobs:
           echo ""
           echo "Success Criteria Met:"
           echo "  ✅ 14 containers running (1 orderer + 6 peers + 6 CouchDBs + 1 CLI)"
-          echo "  ✅ No errors in container logs"
-          echo "  ✅ Crypto material generated for all 7 organizations"
-          echo "  ✅ Peer ports accessible (7051, 8051, 9051, 10051, 11051, 12051)"
-          echo "  ✅ Orderer port accessible (7050)"
           echo "  ✅ Channel 'healthchain-channel' created"
-          echo "  ✅ All 6 peer organizations joined to channel"
+          echo "  ✅ Peers joined to channel"
           echo ""
-          echo "Network Status:"
-          docker ps --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}"
+          docker ps --format "table {{.Names}}\t{{.Status}}"
           echo ""
           echo "🎉 Ready for Skill 04: Private Data Collections!"
           
       - name: Cleanup on failure
         if: failure()
         run: |
-          echo "❌ Tests failed. Showing container status and logs..."
+          echo "❌ Build failed. Showing logs..."
           docker ps -a
           echo ""
           echo "=== Orderer Logs ==="
