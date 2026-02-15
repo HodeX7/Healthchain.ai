@@ -1,6 +1,9 @@
 # Skill files (documentation/reference)
 files
 
+# Hyperledger Fabric binaries
+network/bin/
+
 # Hyperledger Fabric generated files
 network/organizations/ordererOrganizations/
 network/organizations/peerOrganizations/
