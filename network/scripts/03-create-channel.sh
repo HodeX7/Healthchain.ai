@@ -8,7 +8,12 @@ CHANNEL_NAME="healthchain-channel"
 CHANNEL_ARTIFACTS_DIR="../channel-artifacts"
 
 # Create channel artifacts directory
+echo "Creating channel artifacts directory..."
 mkdir -p ${CHANNEL_ARTIFACTS_DIR}
+if [ ! -d "${CHANNEL_ARTIFACTS_DIR}" ]; then
+  echo "Failed to create channel artifacts directory"
+  exit 1
+fi
 
 echo "Creating channel genesis block..."
 
