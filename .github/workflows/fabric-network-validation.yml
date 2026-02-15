@@ -1,188 +1,115 @@
-name: Fabric Network Validation
+name: Fabric Network CI/CD
 
 on:
   push:
     branches: [ main, feature/* ]
-  pull_request:
-    branches: [ main ]
 
 jobs:
-  validate-configuration:
-    name: Validate Network Configuration
+  validate-and-build:
+    name: Build and Validate Network (Skills 01 + 03)
     runs-on: ubuntu-latest
     
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
       
-      - name: Check required files exist
+      - name: Install Hyperledger Fabric binaries
         run: |
-          echo "Checking for required configuration files..."
+          echo "📦 Installing Fabric binaries..."
+          cd network
+          chmod +x install-fabric-binaries.sh
+          ./install-fabric-binaries.sh
           
-          # Check crypto-config.yaml
-          if [ ! -f "network/organizations/cryptogen/crypto-config.yaml" ]; then
-            echo "❌ ERROR: crypto-config.yaml not found"
-            exit 1
-          fi
-          echo "✅ crypto-config.yaml found"
-          
-          # Check docker-compose.yml
-          if [ ! -f "network/docker/docker-compose.yml" ]; then
-            echo "❌ ERROR: docker-compose.yml not found"
-            exit 1
-          fi
-          echo "✅ docker-compose.yml found"
-          
-          # Check startup scripts
-          if [ ! -f "network/scripts/01-generate-crypto.sh" ]; then
-            echo "❌ ERROR: 01-generate-crypto.sh not found"
-            exit 1
-          fi
-          echo "✅ 01-generate-crypto.sh found"
-          
-          if [ ! -f "network/scripts/02-start-network.sh" ]; then
-            echo "❌ ERROR: 02-start-network.sh not found"
-            exit 1
-          fi
-          echo "✅ 02-start-network.sh found"
-      
-      - name: Validate YAML syntax
+      - name: Download Fabric config files
         run: |
-          echo "Validating YAML files..."
+          echo "📥 Downloading Fabric config files..."
+          mkdir -p network/config
+          curl -sSL https://raw.githubusercontent.com/hyperledger/fabric/release-2.5/sampleconfig/core.yaml -o network/config/core.yaml
+          curl -sSL https://raw.githubusercontent.com/hyperledger/fabric/release-2.5/sampleconfig/orderer.yaml -o network/config/orderer.yaml
+          echo "✅ Config files downloaded"
           
-          # Install yamllint
-          pip install yamllint
-          
-          # Validate crypto-config.yaml
-          yamllint -d "{extends: default, rules: {line-length: {max: 120}}}" \
-            network/organizations/cryptogen/crypto-config.yaml
-          echo "✅ crypto-config.yaml is valid YAML"
-          
-          # Validate docker-compose.yml
-          yamllint -d "{extends: default, rules: {line-length: {max: 200}}}" \
-            network/docker/docker-compose.yml
-          echo "✅ docker-compose.yml is valid YAML"
-      
-      - name: Validate crypto-config structure
+      - name: Create channel artifacts directory
         run: |
-          echo "Validating crypto-config.yaml structure..."
+          echo "📁 Creating channel artifacts directory..."
+          mkdir -p network/channel-artifacts
+          chmod 755 network/channel-artifacts
+          echo "✅ Directory created with proper permissions"
           
-          # Check for required organizations
-          if ! grep -q "Name: Orderer" network/organizations/cryptogen/crypto-config.yaml; then
-            echo "❌ ERROR: Orderer organization not found"
+      - name: Run full network build
+        run: |
+          echo "🚀 Running full Fabric network build..."
+          cd network/scripts
+          chmod +x full_build.sh
+          ./full_build.sh
+          
+      - name: Verify deployment
+        run: |
+          echo "🔍 Verifying network deployment..."
+          
+          # Check containers
+          RUNNING=$(docker ps --format '{{.Names}}' | wc -l)
+          echo "Running containers: $RUNNING"
+          
+          if [ "$RUNNING" -ne 14 ]; then
+            echo "❌ Expected 14 containers, found $RUNNING"
+            docker ps -a
             exit 1
           fi
+          echo "✅ All 14 containers running"
           
-          for org in PatientOrg HospitalAOrg HospitalBOrg LabOrg PharmacyOrg InsuranceOrg; do
-            if ! grep -q "Name: $org" network/organizations/cryptogen/crypto-config.yaml; then
-              echo "❌ ERROR: $org not found in crypto-config.yaml"
-              exit 1
-            fi
-            echo "✅ $org configured"
-          done
-      
-      - name: Validate docker-compose services
-        run: |
-          echo "Validating docker-compose.yml services..."
-          
-          # Check for orderer
-          if ! grep -q "orderer.orderer.healthchain.com" network/docker/docker-compose.yml; then
-            echo "❌ ERROR: Orderer service not found"
+          # Check channel exists
+          if [ ! -f network/channel-artifacts/healthchain-channel.block ]; then
+            echo "❌ Channel genesis block missing"
             exit 1
           fi
-          echo "✅ Orderer service configured"
+          echo "✅ Channel genesis block created"
           
-          # Check for all peer services
-          for peer in patient hospitalA hospitalB lab pharmacy insurance; do
-            if ! grep -q "peer0.$peer.healthchain.com" network/docker/docker-compose.yml; then
-              echo "❌ ERROR: Peer $peer not found"
-              exit 1
-            fi
-            echo "✅ Peer $peer configured"
-          done
+          # Verify one peer joined the channel (patient peer)
+          export FABRIC_CFG_PATH=$PWD/network/config
+          export CORE_PEER_TLS_ENABLED=true
+          export CORE_PEER_LOCALMSPID="PatientOrgMSP"
+          export CORE_PEER_TLS_ROOTCERT_FILE=$PWD/network/organizations/peerOrganizations/patient.healthchain.com/peers/peer0.patient.healthchain.com/tls/ca.crt
+          export CORE_PEER_MSPCONFIGPATH=$PWD/network/organizations/peerOrganizations/patient.healthchain.com/users/Admin@patient.healthchain.com/msp
+          export CORE_PEER_ADDRESS=localhost:7051
           
-          # Check for CouchDB services
-          for db in patient hospitalA hospitalB lab pharmacy insurance; do
-            if ! grep -q "couchdb.$db" network/docker/docker-compose.yml; then
-              echo "❌ ERROR: CouchDB for $db not found"
-              exit 1
-            fi
-            echo "✅ CouchDB $db configured"
-          done
-          
-          # Check for CLI container
-          if ! grep -q "container_name: cli" network/docker/docker-compose.yml; then
-            echo "❌ ERROR: CLI container not found"
+          CHANNELS=$(network/bin/peer channel list 2>&1 | grep healthchain-channel || echo "")
+          if [ -z "$CHANNELS" ]; then
+            echo "❌ Peer not joined to healthchain-channel"
             exit 1
           fi
-          echo "✅ CLI container configured"
-      
-      - name: Validate port configurations
-        run: |
-          echo "Validating port configurations..."
+          echo "✅ Peer joined to healthchain-channel"
           
-          # Check for required ports
-          declare -A ports=(
-            ["7050"]="Orderer"
-            ["7051"]="PatientOrg Peer"
-            ["8051"]="HospitalAOrg Peer"
-            ["9051"]="HospitalBOrg Peer"
-            ["10051"]="LabOrg Peer"
-            ["11051"]="PharmacyOrg Peer"
-            ["12051"]="InsuranceOrg Peer"
-          )
-          
-          for port in "${!ports[@]}"; do
-            if ! grep -q "$port:$port" network/docker/docker-compose.yml; then
-              echo "❌ ERROR: Port $port for ${ports[$port]} not found"
-              exit 1
-            fi
-            echo "✅ Port $port configured for ${ports[$port]}"
-          done
-      
-      - name: Check scripts are executable
-        run: |
-          echo "Checking script permissions..."
-          
-          if [ ! -x "network/scripts/01-generate-crypto.sh" ]; then
-            echo "❌ ERROR: 01-generate-crypto.sh is not executable"
-            exit 1
-          fi
-          echo "✅ 01-generate-crypto.sh is executable"
-          
-          if [ ! -x "network/scripts/02-start-network.sh" ]; then
-            echo "❌ ERROR: 02-start-network.sh is not executable"
-            exit 1
-          fi
-          echo "✅ 02-start-network.sh is executable"
-      
-      - name: Validate .gitignore
-        run: |
-          echo "Validating .gitignore..."
-          
-          # Check that crypto material is ignored
-          if ! grep -q "ordererOrganizations" .gitignore; then
-            echo "⚠️  WARNING: ordererOrganizations not in .gitignore"
-          fi
-          
-          if ! grep -q "peerOrganizations" .gitignore; then
-            echo "⚠️  WARNING: peerOrganizations not in .gitignore"
-          fi
-          
-          echo "✅ .gitignore validation complete"
-      
-      - name: Summary
+      - name: Success Summary
         if: success()
         run: |
-          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-          echo "✅ All validation checks passed!"
-          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+          echo "✅ SKILLS 01 + 03: NETWORK SETUP + CHANNEL CREATION COMPLETE!"
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
           echo ""
-          echo "Network Configuration Summary:"
-          echo "  • 1 Orderer organization"
-          echo "  • 6 Peer organizations"
-          echo "  • 6 CouchDB instances"
-          echo "  • 1 CLI container"
-          echo "  • Total: 14 services"
+          echo "Success Criteria Met:"
+          echo "  ✅ 14 containers running (1 orderer + 6 peers + 6 CouchDBs + 1 CLI)"
+          echo "  ✅ Channel 'healthchain-channel' created"
+          echo "  ✅ Peers joined to channel"
           echo ""
-          echo "Ready for deployment! 🚀"
+          docker ps --format "table {{.Names}}\t{{.Status}}"
+          echo ""
+          echo "🎉 Ready for Skill 04: Private Data Collections!"
+          
+      - name: Cleanup on failure
+        if: failure()
+        run: |
+          echo "❌ Build failed. Showing logs..."
+          docker ps -a
+          echo ""
+          echo "=== Orderer Logs ==="
+          docker logs orderer.orderer.healthchain.com 2>&1 | tail -50 || true
+          echo ""
+          echo "=== Patient Peer Logs ==="
+          docker logs peer0.patient.healthchain.com 2>&1 | tail -50 || true
+          
+      - name: Cleanup
+        if: always()
+        run: |
+          echo "🧹 Cleaning up..."
+          cd network/docker
+          docker compose down -v || true

@@ -1,11 +1,13 @@
 # Skill files (documentation/reference)
 files
 
+# Hyperledger Fabric binaries
+network/bin/
+
 # Hyperledger Fabric generated files
 network/organizations/ordererOrganizations/
 network/organizations/peerOrganizations/
-network/channel-artifacts/*.block
-network/channel-artifacts/*.tx
+network/channel-artifacts/
 network/config/core.yaml
 network/config/orderer.yaml
 

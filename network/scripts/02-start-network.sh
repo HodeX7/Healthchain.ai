@@ -5,7 +5,7 @@ DOCKER_COMPOSE_FILE="../docker/docker-compose.yml"
 echo "Starting Hyperledger Fabric network..."
 
 # Start the network
-docker-compose -f ${DOCKER_COMPOSE_FILE} up -d
+docker compose -f ${DOCKER_COMPOSE_FILE} up -d
 
 if [ $? -ne 0 ]; then
   echo "Failed to start network..."

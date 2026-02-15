@@ -1,0 +1,257 @@
+---
+Organizations:
+  - &OrdererOrg
+      Name: OrdererOrg
+      ID: OrdererMSP
+      MSPDir: ../organizations/ordererOrganizations/orderer.healthchain.com/msp
+      Policies:
+        Readers:
+          Type: Signature
+          Rule: "OR('OrdererMSP.member')"
+        Writers:
+          Type: Signature
+          Rule: "OR('OrdererMSP.member')"
+        Admins:
+          Type: Signature
+          Rule: "OR('OrdererMSP.admin')"
+      OrdererEndpoints:
+        - orderer.orderer.healthchain.com:7050
+
+  - &PatientOrg
+      Name: PatientOrgMSP
+      ID: PatientOrgMSP
+      MSPDir: ../organizations/peerOrganizations/patient.healthchain.com/msp
+      Policies:
+        Readers:
+          Type: Signature
+          Rule: "OR('PatientOrgMSP.admin', 'PatientOrgMSP.peer', 'PatientOrgMSP.client')"
+        Writers:
+          Type: Signature
+          Rule: "OR('PatientOrgMSP.admin', 'PatientOrgMSP.client')"
+        Admins:
+          Type: Signature
+          Rule: "OR('PatientOrgMSP.admin')"
+        Endorsement:
+          Type: Signature
+          Rule: "OR('PatientOrgMSP.peer')"
+      AnchorPeers:
+        - Host: peer0.patient.healthchain.com
+          Port: 7051
+
+  - &HospitalAOrg
+      Name: HospitalAOrgMSP
+      ID: HospitalAOrgMSP
+      MSPDir: ../organizations/peerOrganizations/hospitalA.healthchain.com/msp
+      Policies:
+        Readers:
+          Type: Signature
+          Rule: "OR('HospitalAOrgMSP.admin', 'HospitalAOrgMSP.peer', 'HospitalAOrgMSP.client')"
+        Writers:
+          Type: Signature
+          Rule: "OR('HospitalAOrgMSP.admin', 'HospitalAOrgMSP.client')"
+        Admins:
+          Type: Signature
+          Rule: "OR('HospitalAOrgMSP.admin')"
+        Endorsement:
+          Type: Signature
+          Rule: "OR('HospitalAOrgMSP.peer')"
+      AnchorPeers:
+        - Host: peer0.hospitalA.healthchain.com
+          Port: 8051
+
+  - &HospitalBOrg
+      Name: HospitalBOrgMSP
+      ID: HospitalBOrgMSP
+      MSPDir: ../organizations/peerOrganizations/hospitalB.healthchain.com/msp
+      Policies:
+        Readers:
+          Type: Signature
+          Rule: "OR('HospitalBOrgMSP.admin', 'HospitalBOrgMSP.peer', 'HospitalBOrgMSP.client')"
+        Writers:
+          Type: Signature
+          Rule: "OR('HospitalBOrgMSP.admin', 'HospitalBOrgMSP.client')"
+        Admins:
+          Type: Signature
+          Rule: "OR('HospitalBOrgMSP.admin')"
+        Endorsement:
+          Type: Signature
+          Rule: "OR('HospitalBOrgMSP.peer')"
+      AnchorPeers:
+        - Host: peer0.hospitalB.healthchain.com
+          Port: 9051
+
+  - &LabOrg
+      Name: LabOrgMSP
+      ID: LabOrgMSP
+      MSPDir: ../organizations/peerOrganizations/lab.healthchain.com/msp
+      Policies:
+        Readers:
+          Type: Signature
+          Rule: "OR('LabOrgMSP.admin', 'LabOrgMSP.peer', 'LabOrgMSP.client')"
+        Writers:
+          Type: Signature
+          Rule: "OR('LabOrgMSP.admin', 'LabOrgMSP.client')"
+        Admins:
+          Type: Signature
+          Rule: "OR('LabOrgMSP.admin')"
+        Endorsement:
+          Type: Signature
+          Rule: "OR('LabOrgMSP.peer')"
+      AnchorPeers:
+        - Host: peer0.lab.healthchain.com
+          Port: 10051
+
+  - &PharmacyOrg
+      Name: PharmacyOrgMSP
+      ID: PharmacyOrgMSP
+      MSPDir: ../organizations/peerOrganizations/pharmacy.healthchain.com/msp
+      Policies:
+        Readers:
+          Type: Signature
+          Rule: "OR('PharmacyOrgMSP.admin', 'PharmacyOrgMSP.peer', 'PharmacyOrgMSP.client')"
+        Writers:
+          Type: Signature
+          Rule: "OR('PharmacyOrgMSP.admin', 'PharmacyOrgMSP.client')"
+        Admins:
+          Type: Signature
+          Rule: "OR('PharmacyOrgMSP.admin')"
+        Endorsement:
+          Type: Signature
+          Rule: "OR('PharmacyOrgMSP.peer')"
+      AnchorPeers:
+        - Host: peer0.pharmacy.healthchain.com
+          Port: 11051
+
+  - &InsuranceOrg
+      Name: InsuranceOrgMSP
+      ID: InsuranceOrgMSP
+      MSPDir: ../organizations/peerOrganizations/insurance.healthchain.com/msp
+      Policies:
+        Readers:
+          Type: Signature
+          Rule: "OR('InsuranceOrgMSP.admin', 'InsuranceOrgMSP.peer', 'InsuranceOrgMSP.client')"
+        Writers:
+          Type: Signature
+          Rule: "OR('InsuranceOrgMSP.admin', 'InsuranceOrgMSP.client')"
+        Admins:
+          Type: Signature
+          Rule: "OR('InsuranceOrgMSP.admin')"
+        Endorsement:
+          Type: Signature
+          Rule: "OR('InsuranceOrgMSP.peer')"
+      AnchorPeers:
+        - Host: peer0.insurance.healthchain.com
+          Port: 12051
+
+Capabilities:
+  Channel: &ChannelCapabilities
+    V2_0: true
+  Orderer: &OrdererCapabilities
+    V2_0: true
+  Application: &ApplicationCapabilities
+    V2_5: true
+
+Application: &ApplicationDefaults
+  Organizations:
+  Policies:
+    Readers:
+      Type: ImplicitMeta
+      Rule: "ANY Readers"
+    Writers:
+      Type: ImplicitMeta
+      Rule: "ANY Writers"
+    Admins:
+      Type: ImplicitMeta
+      Rule: "MAJORITY Admins"
+    LifecycleEndorsement:
+      Type: ImplicitMeta
+      Rule: "MAJORITY Endorsement"
+    Endorsement:
+      Type: ImplicitMeta
+      Rule: "MAJORITY Endorsement"
+  Capabilities:
+    <<: *ApplicationCapabilities
+
+Orderer: &OrdererDefaults
+  OrdererType: etcdraft
+  Addresses:
+    - orderer.orderer.healthchain.com:7050
+  EtcdRaft:
+    Consenters:
+      - Host: orderer.orderer.healthchain.com
+        Port: 7050
+        ClientTLSCert: ../organizations/ordererOrganizations/orderer.healthchain.com/orderers/orderer.orderer.healthchain.com/tls/server.crt
+        ServerTLSCert: ../organizations/ordererOrganizations/orderer.healthchain.com/orderers/orderer.orderer.healthchain.com/tls/server.crt
+  BatchTimeout: 2s
+  BatchSize:
+    MaxMessageCount: 10
+    AbsoluteMaxBytes: 99 MB
+    PreferredMaxBytes: 512 KB
+  Organizations:
+  Policies:
+    Readers:
+      Type: ImplicitMeta
+      Rule: "ANY Readers"
+    Writers:
+      Type: ImplicitMeta
+      Rule: "ANY Writers"
+    Admins:
+      Type: ImplicitMeta
+      Rule: "MAJORITY Admins"
+    BlockValidation:
+      Type: ImplicitMeta
+      Rule: "ANY Writers"
+  Capabilities:
+    <<: *OrdererCapabilities
+
+Channel: &ChannelDefaults
+  Policies:
+    Readers:
+      Type: ImplicitMeta
+      Rule: "ANY Readers"
+    Writers:
+      Type: ImplicitMeta
+      Rule: "ANY Writers"
+    Admins:
+      Type: ImplicitMeta
+      Rule: "MAJORITY Admins"
+  Capabilities:
+    <<: *ChannelCapabilities
+
+Profiles:
+  HealthchainOrdererGenesis:
+    <<: *ChannelDefaults
+    Orderer:
+      <<: *OrdererDefaults
+      Organizations:
+        - *OrdererOrg
+      Capabilities: *OrdererCapabilities
+    Application:
+      <<: *ApplicationDefaults
+      Organizations:
+        - *PatientOrg
+        - *HospitalAOrg
+        - *HospitalBOrg
+        - *LabOrg
+        - *PharmacyOrg
+        - *InsuranceOrg
+      Capabilities: *ApplicationCapabilities
+
+  HealthchainChannel:
+    <<: *ChannelDefaults
+    Orderer:
+      <<: *OrdererDefaults
+      Organizations:
+        - *OrdererOrg
+      Capabilities: *OrdererCapabilities
+    Application:
+      <<: *ApplicationDefaults
+      Organizations:
+        - *PatientOrg
+        - *HospitalAOrg
+        - *HospitalBOrg
+        - *LabOrg
+        - *PharmacyOrg
+        - *InsuranceOrg
+      Capabilities: *ApplicationCapabilities
+
