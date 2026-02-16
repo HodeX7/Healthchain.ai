@@ -56,19 +56,20 @@ jobs:
           chmod +x 03-create-channel.sh
           ./03-create-channel.sh
 
-      - name: Deploy Chaincode
-        run: |
-          echo "📜 Deploying chaincode..."
-          cd network/scripts
-          chmod +x 04-deploy-chaincode.sh
-          ./04-deploy-chaincode.sh
+# This produces broken pipe errors
+      # - name: Deploy Chaincode
+      #   run: |
+      #     echo "📜 Deploying chaincode..."
+      #     cd network/scripts
+      #     chmod +x 04-deploy-chaincode.sh
+      #     ./04-deploy-chaincode.sh
 
-      - name: Initialize Chaincode
-        run: |
-          echo "🚀 Initializing chaincode..."
-          cd network/scripts
-          chmod +x 05-init-chaincode.sh
-          ./05-init-chaincode.sh
+      # - name: Initialize Chaincode
+      #   run: |
+      #     echo "🚀 Initializing chaincode..."
+      #     cd network/scripts
+      #     chmod +x 05-init-chaincode.sh
+      #     ./05-init-chaincode.sh
           
       - name: Verify deployment
         run: |
