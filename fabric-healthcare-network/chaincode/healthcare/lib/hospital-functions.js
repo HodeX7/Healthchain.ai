@@ -146,7 +146,8 @@ class HospitalFunctions {
       }
     }
     
-    // Create audit log for read operation
+    // Create audit log for read operation - REMOVED to prevent Private Data Read / Public Write conflict
+    /*
     await createAuditLog(ctx, {
       action: 'READ_RECORDS',
       patientId,
@@ -155,6 +156,7 @@ class HospitalFunctions {
       actor: ctx.clientIdentity.getID(),
       timestamp: getTimestamp(ctx)
     });
+    */
     
     return JSON.stringify(allRecords);
   }

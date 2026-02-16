@@ -1,0 +1,4 @@
+Installed chaincodes on peer:
+Package ID: healthchain_1.0:ce2aa9af25ccfdc5ba61c07e3b9ab487e39dc33bdc27a53319e6ea5644bdcece, Label: healthchain_1.0
+Package ID: healthchain_2.0:3f576f0f8476ab379eeee06557331d0a84e14e2e01bf549871f6f6089648506a, Label: healthchain_2.0
+Package ID: healthchain_2.1:50096208e47fa4a7139cbc2d70ceb20f792ad42c9fc705b6fc3e45dbc6009e9e, Label: healthchain_2.1

@@ -48,6 +48,7 @@ class Utils {
     return ctx.clientIdentity.getAttributeValue('hf.EnrollmentID');
   }
 
+  /*
   static verifyPatientOwnership(ctx, patientId) {
     const callerMSP = ctx.clientIdentity.getMSPID();
     const enrollmentID = ctx.clientIdentity.getAttributeValue('hf.EnrollmentID');
@@ -60,6 +61,7 @@ class Utils {
       throw new Error(`Unauthorized: Access Denied. You ( ${enrollmentID} ) are trying to access data for patient: ${patientId}`);
     }
   }
+  */
   static getTimestamp(ctx) {
     const timestamp = ctx.stub.getTxTimestamp();
     // Convert Fabric timestamp to JS Date

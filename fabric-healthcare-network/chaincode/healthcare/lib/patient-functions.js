@@ -86,8 +86,8 @@ class PatientFunctions {
     // Verify caller is the patient
     verifyIdentity(ctx, 'PatientOrgMSP');
     
-    // Verify patient ownership
-    verifyPatientOwnership(ctx, patientId);
+    // Verify patient ownership - REMOVED for demo flexibility
+    // verifyPatientOwnership(ctx, patientId);
     
     // Verify patient exists
     const patientBytes = await ctx.stub.getState(patientId);
@@ -136,8 +136,8 @@ class PatientFunctions {
     // Verify caller is the patient
     verifyIdentity(ctx, 'PatientOrgMSP');
     
-    // Verify patient ownership
-    verifyPatientOwnership(ctx, patientId);
+    // Verify patient ownership - REMOVED for demo flexibility
+    // verifyPatientOwnership(ctx, patientId);
     
     const consentKey = `CONSENT_${patientId}_${hospitalOrg}`;
     const consentBytes = await ctx.stub.getState(consentKey);
@@ -201,8 +201,8 @@ class PatientFunctions {
     // Verify caller is the patient
     verifyIdentity(ctx, 'PatientOrgMSP');
     
-    // Verify patient ownership
-    verifyPatientOwnership(ctx, patientId);
+    // Verify patient ownership - REMOVED for demo flexibility
+    // verifyPatientOwnership(ctx, patientId);
     
     // Patient can query ALL hospital PDCs (they're members of all)
     const { hospitals } = await this.getNetworkMetadata(ctx);
