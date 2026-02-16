@@ -25,7 +25,7 @@ class Utils {
   }
 
   static async createAuditLog(ctx, logData) {
-    const logKey = `AUDIT_${logData.patientId}_${new Date().getTime()}`;
+    const logKey = `AUDIT_${logData.patientId}_${ctx.stub.getTxID()}`;
     const log = {
       docType: 'auditLog',
       ...logData
@@ -59,6 +59,12 @@ class Utils {
     if (enrollmentID !== patientId) {
       throw new Error(`Unauthorized: Access Denied. You ( ${enrollmentID} ) are trying to access data for patient: ${patientId}`);
     }
+  }
+  static getTimestamp(ctx) {
+    const timestamp = ctx.stub.getTxTimestamp();
+    // Convert Fabric timestamp to JS Date
+    const milliseconds = (timestamp.seconds.low + ((timestamp.nanos / 1000000) / 1000)) * 1000;
+    return new Date(milliseconds).toISOString();
   }
 }
 

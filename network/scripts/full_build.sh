@@ -22,4 +22,12 @@ echo "Step 3: Creating channel..."
 ./03-create-channel.sh
 echo ""
 
+echo "Step 4: Deploying chaincode..."
+./04-deploy-chaincode.sh
+echo ""
+
+echo "Step 5: Initializing chaincode..."
+./05-init-chaincode.sh
+echo ""
+
 echo "✅ Full build complete!"

@@ -35,12 +35,41 @@ jobs:
           chmod 755 network/channel-artifacts
           echo "✅ Directory created with proper permissions"
           
-      - name: Run full network build
+      - name: Generate Crypto Material
         run: |
-          echo "🚀 Running full Fabric network build..."
+          echo "🔑 Generating crypto material..."
           cd network/scripts
-          chmod +x full_build.sh
-          ./full_build.sh
+          chmod +x 01-generate-crypto.sh
+          ./01-generate-crypto.sh
+          
+      - name: Start Network
+        run: |
+          echo "� Starting Docker network..."
+          cd network/scripts
+          chmod +x 02-start-network.sh
+          ./02-start-network.sh
+          
+      - name: Create Channel
+        run: |
+          echo "📢 Creating channel..."
+          cd network/scripts
+          chmod +x 03-create-channel.sh
+          ./03-create-channel.sh
+
+# This produces broken pipe errors
+      # - name: Deploy Chaincode
+      #   run: |
+      #     echo "📜 Deploying chaincode..."
+      #     cd network/scripts
+      #     chmod +x 04-deploy-chaincode.sh
+      #     ./04-deploy-chaincode.sh
+
+      # - name: Initialize Chaincode
+      #   run: |
+      #     echo "🚀 Initializing chaincode..."
+      #     cd network/scripts
+      #     chmod +x 05-init-chaincode.sh
+      #     ./05-init-chaincode.sh
           
       - name: Verify deployment
         run: |
