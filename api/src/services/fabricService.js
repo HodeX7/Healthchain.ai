@@ -58,7 +58,8 @@ class FabricService {
             gateway = networkConn.gateway;
             const contract = networkConn.contract;
 
-            const result = await contract.evaluateTransaction(functionName, ...args);
+            const safeArgs = args.map(arg => arg === undefined || arg === null ? '' : String(arg));
+            const result = await contract.evaluateTransaction(functionName, ...safeArgs);
             return JSON.parse(result.toString() || 'null');
         } catch (error) {
             console.error(`Query Error [${functionName}]:`, error.message);
@@ -76,8 +77,9 @@ class FabricService {
             gateway = networkConn.gateway;
             const contract = networkConn.contract;
 
-            const result = await contract.submitTransaction(functionName, ...args);
-            return result.toString() ? JSON.parse(result.toString()) : { success: true };
+            const safeArgs = args.map(arg => arg === undefined || arg === null ? '' : String(arg));
+            const result = await contract.submitTransaction(functionName, ...safeArgs);
+            return (result && result.toString()) ? JSON.parse(result.toString()) : { success: true };
         } catch (error) {
             console.error(`Invoke Error [${functionName}]:`, error.message);
             throw new Error(error.message);

@@ -27,7 +27,7 @@ const HospitalController = {
     createMedicalRecord: async (req, res) => {
         try {
             const { recordId, patientId, recordType, diagnosis, treatment, notes, documentUrl, docHash } = req.body;
-            const result = await FabricService.invoke(ORG_ROLE, 'User1', 'createMedicalRecord', recordId, patientId, recordType, diagnosis, treatment, notes, documentUrl || '', docHash || '');
+            const result = await FabricService.invoke(ORG_ROLE, 'User1', 'createMedicalRecord', recordId || '', patientId || '', recordType || '', diagnosis || '', treatment || '', notes || '', documentUrl || '', docHash || '');
             res.status(201).json({ success: true, message: 'Medical record created', data: result });
         } catch (error) {
             res.status(500).json({ success: false, error: error.message });
