@@ -133,6 +133,15 @@ class HospitalFunctions {
         
         const iterator = await ctx.stub.getPrivateDataByRange(pdcName, startKey, endKey);
         
+        // DEBUG SHORTCIRCUIT
+        try {
+          const exactRecord = await ctx.stub.getPrivateData(pdcName, `RECORD_${patientId}_REC001`);
+          if (exactRecord && exactRecord.length > 0) {
+            allRecords.push(JSON.parse(exactRecord.toString()));
+            continue; // Skip the iterator if we found it directly
+          }
+        } catch (e) { console.log(e); }
+
         let result = await iterator.next();
         while (!result.done) {
           const record = JSON.parse(result.value.value.toString());

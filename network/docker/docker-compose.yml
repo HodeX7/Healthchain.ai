@@ -59,7 +59,7 @@ services:
   # PatientOrg Peer
   peer0.patient.healthchain.com:
     container_name: peer0.patient.healthchain.com
-    image: hyperledger/fabric-peer:2.5
+    image: hyperledger/fabric-peer:2.5.12
     labels:
       service: hyperledger-fabric
     environment:
@@ -89,7 +89,6 @@ services:
       - CORE_LEDGER_STATE_COUCHDBCONFIG_PASSWORD=adminpw
       - CORE_VM_ENDPOINT=unix:///host/var/run/docker.sock
       - CORE_VM_DOCKER_HOSTCONFIG_NETWORKMODE=fabric_healthchain
-      - DOCKER_API_VERSION=1.44
     volumes:
       - /var/run/docker.sock:/host/var/run/docker.sock
       - ../config:/etc/hyperledger/peercfg
@@ -121,7 +120,7 @@ services:
   # HospitalAOrg Peer
   peer0.hospitalA.healthchain.com:
     container_name: peer0.hospitalA.healthchain.com
-    image: hyperledger/fabric-peer:2.5
+    image: hyperledger/fabric-peer:2.5.12
     labels:
       service: hyperledger-fabric
     environment:
@@ -151,7 +150,6 @@ services:
       - CORE_LEDGER_STATE_COUCHDBCONFIG_PASSWORD=adminpw
       - CORE_VM_ENDPOINT=unix:///host/var/run/docker.sock
       - CORE_VM_DOCKER_HOSTCONFIG_NETWORKMODE=fabric_healthchain
-      - DOCKER_API_VERSION=1.44
     volumes:
       - /var/run/docker.sock:/host/var/run/docker.sock
       - ../config:/etc/hyperledger/peercfg
@@ -183,7 +181,7 @@ services:
   # HospitalBOrg Peer
   peer0.hospitalB.healthchain.com:
     container_name: peer0.hospitalB.healthchain.com
-    image: hyperledger/fabric-peer:2.5
+    image: hyperledger/fabric-peer:2.5.12
     labels:
       service: hyperledger-fabric
     environment:
@@ -213,7 +211,6 @@ services:
       - CORE_LEDGER_STATE_COUCHDBCONFIG_PASSWORD=adminpw
       - CORE_VM_ENDPOINT=unix:///host/var/run/docker.sock
       - CORE_VM_DOCKER_HOSTCONFIG_NETWORKMODE=fabric_healthchain
-      - DOCKER_API_VERSION=1.44
     volumes:
       - /var/run/docker.sock:/host/var/run/docker.sock
       - ../config:/etc/hyperledger/peercfg
@@ -245,7 +242,7 @@ services:
   # LabOrg Peer
   peer0.lab.healthchain.com:
     container_name: peer0.lab.healthchain.com
-    image: hyperledger/fabric-peer:2.5
+    image: hyperledger/fabric-peer:2.5.12
     labels:
       service: hyperledger-fabric
     environment:
@@ -275,7 +272,6 @@ services:
       - CORE_LEDGER_STATE_COUCHDBCONFIG_PASSWORD=adminpw
       - CORE_VM_ENDPOINT=unix:///host/var/run/docker.sock
       - CORE_VM_DOCKER_HOSTCONFIG_NETWORKMODE=fabric_healthchain
-      - DOCKER_API_VERSION=1.44
     volumes:
       - /var/run/docker.sock:/host/var/run/docker.sock
       - ../config:/etc/hyperledger/peercfg
@@ -307,7 +303,7 @@ services:
   # PharmacyOrg Peer
   peer0.pharmacy.healthchain.com:
     container_name: peer0.pharmacy.healthchain.com
-    image: hyperledger/fabric-peer:2.5
+    image: hyperledger/fabric-peer:2.5.12
     labels:
       service: hyperledger-fabric
     environment:
@@ -337,7 +333,6 @@ services:
       - CORE_LEDGER_STATE_COUCHDBCONFIG_PASSWORD=adminpw
       - CORE_VM_ENDPOINT=unix:///host/var/run/docker.sock
       - CORE_VM_DOCKER_HOSTCONFIG_NETWORKMODE=fabric_healthchain
-      - DOCKER_API_VERSION=1.44
     volumes:
       - /var/run/docker.sock:/host/var/run/docker.sock
       - ../config:/etc/hyperledger/peercfg
@@ -369,7 +364,7 @@ services:
   # InsuranceOrg Peer
   peer0.insurance.healthchain.com:
     container_name: peer0.insurance.healthchain.com
-    image: hyperledger/fabric-peer:2.5
+    image: hyperledger/fabric-peer:2.5.12
     labels:
       service: hyperledger-fabric
     environment:
@@ -399,7 +394,6 @@ services:
       - CORE_LEDGER_STATE_COUCHDBCONFIG_PASSWORD=adminpw
       - CORE_VM_ENDPOINT=unix:///host/var/run/docker.sock
       - CORE_VM_DOCKER_HOSTCONFIG_NETWORKMODE=fabric_healthchain
-      - DOCKER_API_VERSION=1.44
     volumes:
       - /var/run/docker.sock:/host/var/run/docker.sock
       - ../config:/etc/hyperledger/peercfg

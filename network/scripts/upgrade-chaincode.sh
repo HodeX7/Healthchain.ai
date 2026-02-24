@@ -10,8 +10,8 @@ export FABRIC_CFG_PATH=${NETWORK_DIR}/config
 export ORDERER_CA=${NETWORK_DIR}/organizations/ordererOrganizations/orderer.healthchain.com/orderers/orderer.orderer.healthchain.com/msp/tlscacerts/tlsca.orderer.healthchain.com-cert.pem
 
 CC_NAME="healthchain"
-CC_VERSION="2.1"
-CC_SEQUENCE="3"
+CC_VERSION="2.2"
+CC_SEQUENCE="2"
 CHANNEL_NAME="healthchain-channel"
 CC_PATH="${PROJECT_ROOT}/fabric-healthcare-network/chaincode/healthcare"
 COLLECTIONS_CONFIG="${PROJECT_ROOT}/fabric-healthcare-network/chaincode/healthcare/collections_config.json"
@@ -115,7 +115,8 @@ approveChaincode() {
     --version ${CC_VERSION} \
     --package-id ${PACKAGE_ID} \
     --sequence ${CC_SEQUENCE} \
-    --collections-config ${COLLECTIONS_CONFIG}
+    --collections-config ${COLLECTIONS_CONFIG} \
+    --signature-policy "OR('PatientOrgMSP.member','HospitalAOrgMSP.member','HospitalBOrgMSP.member','LabOrgMSP.member','PharmacyOrgMSP.member','InsuranceOrgMSP.member')"
   
   if [ $? -ne 0 ]; then
     echo "Failed to approve for ${ORG}"
@@ -159,6 +160,7 @@ peer lifecycle chaincode commit \
   --version ${CC_VERSION} \
   --sequence ${CC_SEQUENCE} \
   --collections-config ${COLLECTIONS_CONFIG} \
+  --signature-policy "OR('PatientOrgMSP.member','HospitalAOrgMSP.member','HospitalBOrgMSP.member','LabOrgMSP.member','PharmacyOrgMSP.member','InsuranceOrgMSP.member')" \
   --peerAddresses localhost:7051 \
   --tlsRootCertFiles ${NETWORK_DIR}/organizations/peerOrganizations/patient.healthchain.com/peers/peer0.patient.healthchain.com/tls/ca.crt \
   --peerAddresses localhost:8051 \
