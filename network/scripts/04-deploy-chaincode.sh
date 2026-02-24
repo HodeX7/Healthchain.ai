@@ -110,7 +110,8 @@ approveChaincode() {
     --version ${CC_VERSION} \
     --package-id ${PACKAGE_ID} \
     --sequence ${CC_SEQUENCE} \
-    --collections-config ${COLLECTIONS_CONFIG}
+    --collections-config ${COLLECTIONS_CONFIG} \
+    --signature-policy "OR('PatientOrgMSP.member','HospitalAOrgMSP.member','HospitalBOrgMSP.member','LabOrgMSP.member','PharmacyOrgMSP.member','InsuranceOrgMSP.member')"
   
   if [ $? -ne 0 ]; then
     echo "Failed to approve for ${ORG}"
@@ -154,6 +155,7 @@ peer lifecycle chaincode commit \
   --version ${CC_VERSION} \
   --sequence ${CC_SEQUENCE} \
   --collections-config ${COLLECTIONS_CONFIG} \
+  --signature-policy "OR('PatientOrgMSP.member','HospitalAOrgMSP.member','HospitalBOrgMSP.member','LabOrgMSP.member','PharmacyOrgMSP.member','InsuranceOrgMSP.member')" \
   --peerAddresses localhost:7051 \
   --tlsRootCertFiles ${PWD}/../organizations/peerOrganizations/patient.healthchain.com/peers/peer0.patient.healthchain.com/tls/ca.crt \
   --peerAddresses localhost:8051 \

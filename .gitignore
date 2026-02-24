@@ -58,3 +58,12 @@ yarn-error.log*
 tmp/
 temp/
 *.tmp
+
+# Root level Fabric binaries and config
+bin/
+config/
+builders/
+installed*.txt
+network/scripts/installed.txt
+network/scripts/*.tar.gz
+network/scripts/*.txt

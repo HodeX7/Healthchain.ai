@@ -1,17 +1,65 @@
 'use strict';
-const { getPDCName, verifyIdentity, getTimestamp } = require('./utils');
+const { getPDCName, verifyIdentity, getTimestamp, createAuditLog } = require('./utils');
+
+function waitForGossip(ms) {
+  return new Promise(resolve => {
+    const start = Date.now();
+    const checkInterval = setInterval(() => {
+      if (Date.now() - start >= ms) {
+        clearInterval(checkInterval);
+        resolve();
+      }
+    }, 10);
+  });
+}
+
+async function readClaimWithGossipWait(ctx, claimId, maxAttempts = 5, waitMs = 100) {
+  const hospitals = ['HospitalAOrgMSP', 'HospitalBOrgMSP'];
+  
+  for (let attempt = 0; attempt < maxAttempts; attempt++) {
+    for (const hospital of hospitals) {
+      const pdcName = `collectionInsuranceClaims_${hospital.replace('OrgMSP', '')}`;
+      
+      try {
+        const claimBytes = await ctx.stub.getPrivateData(pdcName, claimId);
+        
+        if (claimBytes && claimBytes.length > 0) {
+          return {
+            claim: JSON.parse(claimBytes.toString()),
+            pdcName: pdcName
+          };
+        }
+      } catch (error) {
+        console.log(`Claim ${claimId} not in ${pdcName}, attempt ${attempt + 1}`);
+      }
+    }
+    
+    if (attempt < maxAttempts - 1) {
+      console.log(`Waiting ${waitMs}ms for gossip to propagate...`);
+      await waitForGossip(waitMs);
+    }
+  }
+  
+  return null;
+}
 
 class InsuranceFunctions {
   static async viewClaims(ctx, status) {
     verifyIdentity(ctx, 'InsuranceOrgMSP');
-    const { hospitals } = await require('./utils').getNetworkMetadata(ctx);
+    
+    const hospitals = ['HospitalAOrgMSP', 'HospitalBOrgMSP'];
     const claims = [];
     
+    // Wait for recent gossip
+    await waitForGossip(150);
+    
     for (const hospital of hospitals) {
-      const pdcName = getPDCName('InsuranceClaims', hospital);
+      const pdcName = `collectionInsuranceClaims_${hospital.replace('OrgMSP', '')}`;
+      
       try {
         const iterator = await ctx.stub.getPrivateDataByRange(pdcName, '', '');
         let result = await iterator.next();
+        
         while (!result.done) {
           const claim = JSON.parse(result.value.value.toString());
           if (!status || claim.status === status) {
@@ -19,9 +67,10 @@ class InsuranceFunctions {
           }
           result = await iterator.next();
         }
+        
         await iterator.close();
       } catch (error) {
-        console.log(`Cannot access ${pdcName}`);
+        console.log(`Cannot access ${pdcName}: ${error.message}`);
       }
     }
     
@@ -30,75 +79,97 @@ class InsuranceFunctions {
 
   static async approveClaim(ctx, claimId, approvedAmount, notes) {
     verifyIdentity(ctx, 'InsuranceOrgMSP');
-    const { hospitals } = await require('./utils').getNetworkMetadata(ctx);
     
-    for (const hospital of hospitals) {
-      const pdcName = getPDCName('InsuranceClaims', hospital);
-      try {
-        const claimBytes = await ctx.stub.getPrivateData(pdcName, claimId);
-        if (claimBytes && claimBytes.length > 0) {
-          const claim = JSON.parse(claimBytes.toString());
-          claim.status = 'approved';
-          claim.approvedAmount = approvedAmount;
-          claim.reviewedBy = ctx.clientIdentity.getID();
-          claim.reviewedAt = getTimestamp(ctx);
-          claim.notes = notes;
-          
-          await ctx.stub.putPrivateData(pdcName, claimId, Buffer.from(JSON.stringify(claim)));
-          
-          ctx.stub.setEvent('ClaimApproved', Buffer.from(JSON.stringify(claim)));
-          return JSON.stringify(claim);
-        }
-      } catch (error) {
-        continue;
-      }
+    const result = await readClaimWithGossipWait(ctx, claimId, 5, 100);
+    
+    if (!result) {
+      throw new Error(`Claim ${claimId} not found after waiting for gossip synchronization`);
     }
     
-    throw new Error(`Claim ${claimId} not found`);
+    const { claim, pdcName } = result;
+    
+    if (claim.status !== 'submitted') {
+      throw new Error(`Claim ${claimId} cannot be approved. Current status: ${claim.status}`);
+    }
+    
+    const timestamp = getTimestamp(ctx);
+    
+    claim.status = 'approved';
+    claim.approvedAmount = parseFloat(approvedAmount);
+    claim.reviewedBy = ctx.clientIdentity.getID();
+    claim.reviewedAt = timestamp;
+    claim.notes = notes || '';
+    
+    await ctx.stub.putPrivateData(pdcName, claimId, Buffer.from(JSON.stringify(claim)));
+    
+    await createAuditLog(ctx, {
+      action: 'APPROVE_CLAIM',
+      claimId,
+      patientId: claim.patientId,
+      approvedAmount: claim.approvedAmount,
+      actor: ctx.clientIdentity.getID(),
+      timestamp: timestamp
+    });
+    
+    ctx.stub.setEvent('ClaimApproved', Buffer.from(JSON.stringify({
+      claimId,
+      approvedAmount: claim.approvedAmount,
+      approvedAt: claim.reviewedAt
+    })));
+    
+    return JSON.stringify(claim);
   }
 
   static async denyClaim(ctx, claimId, reason) {
     verifyIdentity(ctx, 'InsuranceOrgMSP');
-    const { hospitals } = await require('./utils').getNetworkMetadata(ctx);
     
-    for (const hospital of hospitals) {
-      const pdcName = getPDCName('InsuranceClaims', hospital);
-      try {
-        const claimBytes = await ctx.stub.getPrivateData(pdcName, claimId);
-        if (claimBytes && claimBytes.length > 0) {
-          const claim = JSON.parse(claimBytes.toString());
-          claim.status = 'denied';
-          claim.denialReason = reason;
-          claim.reviewedBy = ctx.clientIdentity.getID();
-          claim.reviewedAt = getTimestamp(ctx);
-          
-          await ctx.stub.putPrivateData(pdcName, claimId, Buffer.from(JSON.stringify(claim)));
-          
-          ctx.stub.setEvent('ClaimDenied', Buffer.from(JSON.stringify(claim)));
-          return JSON.stringify(claim);
-        }
-      } catch (error) {
-        continue;
-      }
+    const result = await readClaimWithGossipWait(ctx, claimId, 5, 100);
+    
+    if (!result) {
+      throw new Error(`Claim ${claimId} not found after waiting for gossip synchronization`);
     }
     
-    throw new Error(`Claim ${claimId} not found`);
+    const { claim, pdcName } = result;
+    
+    if (claim.status !== 'submitted') {
+      throw new Error(`Claim ${claimId} cannot be denied. Current status: ${claim.status}`);
+    }
+    
+    const timestamp = getTimestamp(ctx);
+    
+    claim.status = 'denied';
+    claim.denialReason = reason;
+    claim.reviewedBy = ctx.clientIdentity.getID();
+    claim.reviewedAt = timestamp;
+    
+    await ctx.stub.putPrivateData(pdcName, claimId, Buffer.from(JSON.stringify(claim)));
+    
+    await createAuditLog(ctx, {
+      action: 'DENY_CLAIM',
+      claimId,
+      patientId: claim.patientId,
+      denialReason: reason,
+      actor: ctx.clientIdentity.getID(),
+      timestamp: timestamp
+    });
+    
+    ctx.stub.setEvent('ClaimDenied', Buffer.from(JSON.stringify({
+      claimId,
+      deniedAt: claim.reviewedAt,
+      reason
+    })));
+    
+    return JSON.stringify(claim);
   }
 
   static async getClaim(ctx, claimId) {
-    const { hospitals } = await require('./utils').getNetworkMetadata(ctx);
-    for (const hospital of hospitals) {
-      const pdcName = getPDCName('InsuranceClaims', hospital);
-      try {
-        const claimBytes = await ctx.stub.getPrivateData(pdcName, claimId);
-        if (claimBytes && claimBytes.length > 0) {
-          return claimBytes.toString();
-        }
-      } catch (error) {
-        continue;
-      }
+    const result = await readClaimWithGossipWait(ctx, claimId, 5, 100);
+    
+    if (!result) {
+      throw new Error(`Claim ${claimId} not found`);
     }
-    throw new Error(`Claim ${claimId} not found`);
+    
+    return JSON.stringify(result.claim);
   }
 }
 
