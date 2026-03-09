@@ -1,42 +1,24 @@
 'use strict';
-const { getPDCName, verifyIdentity, getTimestamp, createAuditLog } = require('./utils');
+const { getPDCName, verifyIdentity, getTimestamp, createAuditLog, getNetworkMetadata } = require('./utils');
 
-function waitForGossip(ms) {
-  return new Promise(resolve => {
-    const start = Date.now();
-    const checkInterval = setInterval(() => {
-      if (Date.now() - start >= ms) {
-        clearInterval(checkInterval);
-        resolve();
-      }
-    }, 10);
-  });
-}
-
-async function readClaimWithGossipWait(ctx, claimId, maxAttempts = 5, waitMs = 100) {
-  const hospitals = ['HospitalAOrgMSP', 'HospitalBOrgMSP'];
+async function readClaimFromPDCs(ctx, claimId) {
+  const metadata = await getNetworkMetadata(ctx);
+  const hospitals = metadata.hospitals || ['HospitalAOrgMSP', 'HospitalBOrgMSP'];
   
-  for (let attempt = 0; attempt < maxAttempts; attempt++) {
-    for (const hospital of hospitals) {
-      const pdcName = `collectionInsuranceClaims_${hospital.replace('OrgMSP', '')}`;
-      
-      try {
-        const claimBytes = await ctx.stub.getPrivateData(pdcName, claimId);
-        
-        if (claimBytes && claimBytes.length > 0) {
-          return {
-            claim: JSON.parse(claimBytes.toString()),
-            pdcName: pdcName
-          };
-        }
-      } catch (error) {
-        console.log(`Claim ${claimId} not in ${pdcName}, attempt ${attempt + 1}`);
-      }
-    }
+  for (const hospital of hospitals) {
+    const pdcName = `collectionInsuranceClaims_${hospital.replace('OrgMSP', '')}`;
     
-    if (attempt < maxAttempts - 1) {
-      console.log(`Waiting ${waitMs}ms for gossip to propagate...`);
-      await waitForGossip(waitMs);
+    try {
+      const claimBytes = await ctx.stub.getPrivateData(pdcName, claimId);
+      
+      if (claimBytes && claimBytes.length > 0) {
+        return {
+          claim: JSON.parse(claimBytes.toString()),
+          pdcName: pdcName
+        };
+      }
+    } catch (error) {
+      console.log(`Claim ${claimId} not found in ${pdcName}`);
     }
   }
   
@@ -47,11 +29,9 @@ class InsuranceFunctions {
   static async viewClaims(ctx, status) {
     verifyIdentity(ctx, 'InsuranceOrgMSP');
     
-    const hospitals = ['HospitalAOrgMSP', 'HospitalBOrgMSP'];
+    const metadata = await getNetworkMetadata(ctx);
+    const hospitals = metadata.hospitals || ['HospitalAOrgMSP', 'HospitalBOrgMSP'];
     const claims = [];
-    
-    // Wait for recent gossip
-    await waitForGossip(150);
     
     for (const hospital of hospitals) {
       const pdcName = `collectionInsuranceClaims_${hospital.replace('OrgMSP', '')}`;
@@ -80,10 +60,10 @@ class InsuranceFunctions {
   static async approveClaim(ctx, claimId, approvedAmount, notes) {
     verifyIdentity(ctx, 'InsuranceOrgMSP');
     
-    const result = await readClaimWithGossipWait(ctx, claimId, 5, 100);
+    const result = await readClaimFromPDCs(ctx, claimId);
     
     if (!result) {
-      throw new Error(`Claim ${claimId} not found after waiting for gossip synchronization`);
+      throw new Error(`Claim ${claimId} not found. Please retry after a second to allow for gossip synchronization.`);
     }
     
     const { claim, pdcName } = result;
@@ -123,10 +103,10 @@ class InsuranceFunctions {
   static async denyClaim(ctx, claimId, reason) {
     verifyIdentity(ctx, 'InsuranceOrgMSP');
     
-    const result = await readClaimWithGossipWait(ctx, claimId, 5, 100);
+    const result = await readClaimFromPDCs(ctx, claimId);
     
     if (!result) {
-      throw new Error(`Claim ${claimId} not found after waiting for gossip synchronization`);
+      throw new Error(`Claim ${claimId} not found. Please retry after a second to allow for gossip synchronization.`);
     }
     
     const { claim, pdcName } = result;
@@ -163,7 +143,7 @@ class InsuranceFunctions {
   }
 
   static async getClaim(ctx, claimId) {
-    const result = await readClaimWithGossipWait(ctx, claimId, 5, 100);
+    const result = await readClaimFromPDCs(ctx, claimId);
     
     if (!result) {
       throw new Error(`Claim ${claimId} not found`);

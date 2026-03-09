@@ -75,8 +75,10 @@ services:
       - CORE_PEER_LISTENADDRESS=0.0.0.0:7051
       - CORE_PEER_CHAINCODEADDRESS=peer0.patient.healthchain.com:7052
       - CORE_PEER_CHAINCODELISTENADDRESS=0.0.0.0:7052
-      - CORE_PEER_GOSSIP_BOOTSTRAP=peer0.patient.healthchain.com:7051
+      - CORE_PEER_GOSSIP_BOOTSTRAP=peer0.hospitalA.healthchain.com:8051
       - CORE_PEER_GOSSIP_EXTERNALENDPOINT=peer0.patient.healthchain.com:7051
+      - CORE_PEER_GOSSIP_USELEADERELECTION=true
+      - CORE_PEER_GOSSIP_ORGLEADER=false
       - CORE_PEER_LOCALMSPID=PatientOrgMSP
       - CORE_PEER_MSPCONFIGPATH=/etc/hyperledger/fabric/msp
       - CORE_OPERATIONS_LISTENADDRESS=peer0.patient.healthchain.com:9444
@@ -137,7 +139,9 @@ services:
       - CORE_PEER_CHAINCODEADDRESS=peer0.hospitalA.healthchain.com:8052
       - CORE_PEER_CHAINCODELISTENADDRESS=0.0.0.0:8052
       - CORE_PEER_GOSSIP_EXTERNALENDPOINT=peer0.hospitalA.healthchain.com:8051
-      - CORE_PEER_GOSSIP_BOOTSTRAP=peer0.hospitalA.healthchain.com:8051
+      - CORE_PEER_GOSSIP_BOOTSTRAP=peer0.patient.healthchain.com:7051
+      - CORE_PEER_GOSSIP_USELEADERELECTION=true
+      - CORE_PEER_GOSSIP_ORGLEADER=false
       - CORE_PEER_LOCALMSPID=HospitalAOrgMSP
       - CORE_PEER_MSPCONFIGPATH=/etc/hyperledger/fabric/msp
       - CORE_OPERATIONS_LISTENADDRESS=peer0.hospitalA.healthchain.com:9445
@@ -198,7 +202,9 @@ services:
       - CORE_PEER_CHAINCODEADDRESS=peer0.hospitalB.healthchain.com:9052
       - CORE_PEER_CHAINCODELISTENADDRESS=0.0.0.0:9052
       - CORE_PEER_GOSSIP_EXTERNALENDPOINT=peer0.hospitalB.healthchain.com:9051
-      - CORE_PEER_GOSSIP_BOOTSTRAP=peer0.hospitalB.healthchain.com:9051
+      - CORE_PEER_GOSSIP_BOOTSTRAP=peer0.hospitalA.healthchain.com:8051
+      - CORE_PEER_GOSSIP_USELEADERELECTION=true
+      - CORE_PEER_GOSSIP_ORGLEADER=false
       - CORE_PEER_LOCALMSPID=HospitalBOrgMSP
       - CORE_PEER_MSPCONFIGPATH=/etc/hyperledger/fabric/msp
       - CORE_OPERATIONS_LISTENADDRESS=peer0.hospitalB.healthchain.com:9446
@@ -259,7 +265,9 @@ services:
       - CORE_PEER_CHAINCODEADDRESS=peer0.lab.healthchain.com:10052
       - CORE_PEER_CHAINCODELISTENADDRESS=0.0.0.0:10052
       - CORE_PEER_GOSSIP_EXTERNALENDPOINT=peer0.lab.healthchain.com:10051
-      - CORE_PEER_GOSSIP_BOOTSTRAP=peer0.lab.healthchain.com:10051
+      - CORE_PEER_GOSSIP_BOOTSTRAP=peer0.hospitalA.healthchain.com:8051
+      - CORE_PEER_GOSSIP_USELEADERELECTION=true
+      - CORE_PEER_GOSSIP_ORGLEADER=false
       - CORE_PEER_LOCALMSPID=LabOrgMSP
       - CORE_PEER_MSPCONFIGPATH=/etc/hyperledger/fabric/msp
       - CORE_OPERATIONS_LISTENADDRESS=peer0.lab.healthchain.com:9447
@@ -320,7 +328,9 @@ services:
       - CORE_PEER_CHAINCODEADDRESS=peer0.pharmacy.healthchain.com:11052
       - CORE_PEER_CHAINCODELISTENADDRESS=0.0.0.0:11052
       - CORE_PEER_GOSSIP_EXTERNALENDPOINT=peer0.pharmacy.healthchain.com:11051
-      - CORE_PEER_GOSSIP_BOOTSTRAP=peer0.pharmacy.healthchain.com:11051
+      - CORE_PEER_GOSSIP_BOOTSTRAP=peer0.hospitalA.healthchain.com:8051
+      - CORE_PEER_GOSSIP_USELEADERELECTION=true
+      - CORE_PEER_GOSSIP_ORGLEADER=false
       - CORE_PEER_LOCALMSPID=PharmacyOrgMSP
       - CORE_PEER_MSPCONFIGPATH=/etc/hyperledger/fabric/msp
       - CORE_OPERATIONS_LISTENADDRESS=peer0.pharmacy.healthchain.com:9448
@@ -381,7 +391,9 @@ services:
       - CORE_PEER_CHAINCODEADDRESS=peer0.insurance.healthchain.com:12052
       - CORE_PEER_CHAINCODELISTENADDRESS=0.0.0.0:12052
       - CORE_PEER_GOSSIP_EXTERNALENDPOINT=peer0.insurance.healthchain.com:12051
-      - CORE_PEER_GOSSIP_BOOTSTRAP=peer0.insurance.healthchain.com:12051
+      - CORE_PEER_GOSSIP_BOOTSTRAP=peer0.hospitalA.healthchain.com:8051
+      - CORE_PEER_GOSSIP_USELEADERELECTION=true
+      - CORE_PEER_GOSSIP_ORGLEADER=false
       - CORE_PEER_LOCALMSPID=InsuranceOrgMSP
       - CORE_PEER_MSPCONFIGPATH=/etc/hyperledger/fabric/msp
       - CORE_OPERATIONS_LISTENADDRESS=peer0.insurance.healthchain.com:9449

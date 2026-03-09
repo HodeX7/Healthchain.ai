@@ -1,51 +1,29 @@
 'use strict';
-const { getPDCName, verifyIdentity, getTimestamp, createAuditLog } = require('./utils');
+const { getPDCName, verifyIdentity, getTimestamp, createAuditLog, getNetworkMetadata } = require('./utils');
 
-// Utility to wait for gossip propagation
-function waitForGossip(ms) {
-  return new Promise(resolve => {
-    const start = Date.now();
-    const checkInterval = setInterval(() => {
-      if (Date.now() - start >= ms) {
-        clearInterval(checkInterval);
-        resolve();
+// Utility to read from multiple hospital PDCs
+async function readPrescriptionFromPDCs(ctx, prescriptionId) {
+  const metadata = await getNetworkMetadata(ctx);
+  const hospitals = metadata.hospitals || ['HospitalAOrgMSP', 'HospitalBOrgMSP'];
+
+  for (const hospital of hospitals) {
+    const pdcName = `collectionPrescriptions_${hospital.replace('OrgMSP', '')}`;
+
+    try {
+      const prescriptionBytes = await ctx.stub.getPrivateData(pdcName, prescriptionId);
+
+      if (prescriptionBytes && prescriptionBytes.length > 0) {
+        return {
+          prescription: JSON.parse(prescriptionBytes.toString()),
+          pdcName: pdcName
+        };
       }
-    }, 10);
-  });
-}
-
-async function readPrescriptionWithGossipWait(ctx, prescriptionId, maxAttempts = 5, waitMs = 100) {
-  const hospitals = ['HospitalAOrgMSP', 'HospitalBOrgMSP'];
-
-  for (let attempt = 0; attempt < maxAttempts; attempt++) {
-    // Try to read from all hospital PDCs
-    for (const hospital of hospitals) {
-      const pdcName = `collectionPrescriptions_${hospital.replace('OrgMSP', '')}`;
-
-      try {
-        const prescriptionBytes = await ctx.stub.getPrivateData(pdcName, prescriptionId);
-
-        if (prescriptionBytes && prescriptionBytes.length > 0) {
-          // Found it!
-          return {
-            prescription: JSON.parse(prescriptionBytes.toString()),
-            pdcName: pdcName
-          };
-        }
-      } catch (error) {
-        // Not in this PDC, try next
-        console.log(`Prescription ${prescriptionId} not in ${pdcName}, attempt ${attempt + 1}`);
-      }
-    }
-
-    // Not found yet, wait for gossip if not last attempt
-    if (attempt < maxAttempts - 1) {
-      console.log(`Waiting ${waitMs}ms for gossip to propagate...`);
-      await waitForGossip(waitMs);
+    } catch (error) {
+      // Log and continue to next PDC
+      console.log(`Prescription ${prescriptionId} not found in ${pdcName}`);
     }
   }
 
-  // After all attempts, still not found
   return null;
 }
 
@@ -53,11 +31,9 @@ class PharmacyFunctions {
   static async viewPrescriptions(ctx, status) {
     verifyIdentity(ctx, 'PharmacyOrgMSP');
 
-    const hospitals = ['HospitalAOrgMSP', 'HospitalBOrgMSP'];
+    const metadata = await getNetworkMetadata(ctx);
+    const hospitals = metadata.hospitals || ['HospitalAOrgMSP', 'HospitalBOrgMSP'];
     const prescriptions = [];
-
-    // Wait a bit for any recent gossip to complete
-    await waitForGossip(150);
 
     for (const hospital of hospitals) {
       const pdcName = `collectionPrescriptions_${hospital.replace('OrgMSP', '')}`;
@@ -86,11 +62,11 @@ class PharmacyFunctions {
   static async fulfillPrescription(ctx, prescriptionId) {
     verifyIdentity(ctx, 'PharmacyOrgMSP');
 
-    // Use retry logic with gossip wait
-    const result = await readPrescriptionWithGossipWait(ctx, prescriptionId, 5, 100);
+    // Read from PDCs
+    const result = await readPrescriptionFromPDCs(ctx, prescriptionId);
 
     if (!result) {
-      throw new Error(`Prescription ${prescriptionId} not found after waiting for gossip synchronization. It may not exist or gossip propagation failed.`);
+      throw new Error(`Prescription ${prescriptionId} not found. If this was just issued, please retry after a second to allow for gossip synchronization.`);
     }
 
     const { prescription, pdcName } = result;
@@ -125,7 +101,7 @@ class PharmacyFunctions {
   }
 
   static async getPrescription(ctx, prescriptionId) {
-    const result = await readPrescriptionWithGossipWait(ctx, prescriptionId, 5, 100);
+    const result = await readPrescriptionFromPDCs(ctx, prescriptionId);
 
     if (!result) {
       throw new Error(`Prescription ${prescriptionId} not found`);

@@ -246,7 +246,7 @@ sleep 2
 
 R=$(invoke '{"function":"createMedicalRecord","Args":["REC002","P001","lab_result","Normal CBC","No treatment","Annual check","s3://recs/R002","sha256:bbb"]}' $HOSP_A)
 tc "Create second medical record for P001" "$R" "REC002"
-sleep 2
+sleep 4 # Longer sleep for CouchDB indexing on HospitalA node
 
 R=$(query '{"function":"queryPatientRecords","Args":["P001"]}' $HOSP_A)
 tc "Hospital queries P001 records — finds REC001" "$R" "REC001"
@@ -761,7 +761,7 @@ echo -e "${YELLOW}  → Concurrent medical record creation...${NC}"
 for i in 20 21 22; do
   invoke "{\"function\":\"createMedicalRecord\",\"Args\":[\"REC0${i}\",\"P001\",\"diagnosis\",\"Concurrent test ${i}\",\"Treatment\",\"Notes\",\"s3://r/R0${i}\",\"sha:r${i}\"]}" $HOSP_A > /dev/null 2>&1 &
 done
-wait; sleep 2
+wait; sleep 5 # Wait for indexing after concurrent writes
 
 R=$(query '{"function":"queryPatientRecords","Args":["P001"]}' $HOSP_A)
 tc "Concurrent record creation: P001 has records (shortcircuit returns REC001)" "$R" "REC001|REC020|REC021|REC022"
@@ -876,6 +876,83 @@ tc "Patient with no records returns empty array" "$R" "\[\]"
 
 R=$(query '{"function":"getMyConsents","Args":["P004"]}' $PAT)
 tc "Patient with no consents returns empty array" "$R" "\[\]"
+
+# =============================================================================
+section "CATEGORY 16: REGRESSION — PDC ENDORSEMENT & GOSSIP FIXES (12 tests)"
+# =============================================================================
+# Bug 1 regression: POST endpoints that were failing with ENDORSEMENT_POLICY_FAILURE.
+# Each tc() call will FAIL if the result contains ENDORSEMENT_POLICY_FAILURE.
+# We re-grant HospitalA access to P002 (may have been revoked earlier) so the writes succeed.
+
+echo -e "${YELLOW}  → Regression: verifying no ENDORSEMENT_POLICY_FAILURE on PDC writes...${NC}"
+
+# Set up fresh consent for P002/HospitalA to avoid consent errors contaminating this test
+R=$(invoke '{"function":"requestAccess","Args":["P002"]}' $HOSP_A)
+R=$(invoke '{"function":"grantAccess","Args":["P002","HospitalAOrgMSP","[\"collectionMedicalRecords_HospitalA\",\"collectionLabReports_HospitalA\",\"collectionPrescriptions_HospitalA\",\"collectionInsuranceClaims_HospitalA\"]"]}' $PAT)
+sleep 1
+
+# Bug 1 – medical record write (POST /api/hospital/records)
+R=$(invoke '{"function":"createMedicalRecord","Args":["REG_REC001","P002","diagnosis","Regression test record","Treatment A","Notes","s3://reg/R001","sha256:reg1"]}' $HOSP_A)
+tc "Regression: createMedicalRecord must not produce ENDORSEMENT_POLICY_FAILURE" "$R" "REG_REC001"
+sleep 2
+
+# Bug 1 – lab report write (POST /api/lab/reports)
+R=$(invoke '{"function":"orderLabTest","Args":["REG_ORD001","P002","CBC","routine","Regression"]}' $HOSP_A)
+sleep 1
+R=$(invoke '{"function":"uploadLabReport","Args":["REG_LAB001","REG_ORD001","P002","CBC","{\"WBC\":\"7.0\"}","s3://reg/L001","sha256:lab_reg1"]}' $LAB)
+tc "Regression: uploadLabReport must not produce ENDORSEMENT_POLICY_FAILURE" "$R" "REG_LAB001"
+sleep 1
+
+# Bug 1 – prescription write (POST /api/hospital/prescriptions)
+R=$(invoke '{"function":"issuePrescription","Args":["REG_PRES001","P002","[{\"name\":\"Aspirin\",\"dosage\":\"81mg\",\"frequency\":\"Once daily\",\"duration\":\"30 days\"}]","Regression test","2027-12-31"]}' $HOSP_A)
+tc "Regression: issuePrescription must not produce ENDORSEMENT_POLICY_FAILURE" "$R" "REG_PRES001"
+sleep 1
+
+# Bug 1 – insurance claim write (POST /api/hospital/insurance-claims)
+R=$(invoke '{"function":"submitInsuranceClaim","Args":["REG_CLM001","P002","2026-03-01","[{\"code\":\"99213\",\"description\":\"Regression visit\",\"cost\":100.00}]","100.00"]}' $HOSP_A)
+tc "Regression: submitInsuranceClaim must not produce ENDORSEMENT_POLICY_FAILURE" "$R" "REG_CLM001"
+sleep 2
+
+# ──────────────────────────────────────────────────────────────────────────────
+# Bug 2 regression: cross-org gossip must deliver PDC data to pharmacy and insurance.
+# These were returning [] before the GOSSIP_BOOTSTRAP fix.
+echo -e "${YELLOW}  → Regression: verifying cross-org gossip delivers PDC data...${NC}"
+
+# Issue a brand-new prescription and immediately read it from the pharmacy peer.
+R=$(invoke '{"function":"issuePrescription","Args":["REG_PRES002","P002","[{\"name\":\"Metformin\",\"dosage\":\"500mg\",\"frequency\":\"Twice daily\",\"duration\":\"30 days\"}]","Gossip regression","2027-12-31"]}' $HOSP_A)
+tc "Gossip regression: HospitalA issues REG_PRES002" "$R" "REG_PRES002"
+sleep 2
+
+# Pharmacy peer must be able to see it via gossip (direct key lookup — not a range query).
+R=$(query '{"function":"getPrescription","Args":["REG_PRES002"]}' $PHARMA)
+tc "Gossip regression: pharmacy peer receives prescription PDC via gossip" "$R" "REG_PRES002"
+
+# Pharmacy must be able to fulfill it (write back into the PDC).
+R=$(invoke '{"function":"fulfillPrescription","Args":["REG_PRES002"]}' $PHARMA)
+tc "Gossip regression: pharmacy can fulfill gossip-delivered prescription" "$R" "fulfilled"
+sleep 1
+
+# Submit a brand-new claim and let insurance read it.
+R=$(invoke '{"function":"submitInsuranceClaim","Args":["REG_CLM002","P002","2026-03-01","[{\"code\":\"99214\",\"description\":\"Gossip regression\",\"cost\":200.00}]","200.00"]}' $HOSP_A)
+tc "Gossip regression: HospitalA submits REG_CLM002" "$R" "REG_CLM002"
+sleep 2
+
+# Insurance peer must be able to see it via gossip.
+R=$(query '{"function":"getClaim","Args":["REG_CLM002"]}' $INS)
+tc "Gossip regression: insurance peer receives claim PDC via gossip" "$R" "REG_CLM002"
+
+# Insurance must be able to approve it (write back into the PDC).
+R=$(invoke '{"function":"approveClaim","Args":["REG_CLM002","200.00","Gossip regression approval"]}' $INS)
+tc "Gossip regression: insurance can approve gossip-delivered claim" "$R" "approved"
+sleep 1
+
+# Sanity — the original REG_CLM001 must also be visible to insurance peer.
+R=$(query '{"function":"getClaim","Args":["REG_CLM001"]}' $INS)
+tc "Gossip regression: earlier REG_CLM001 also visible on insurance peer" "$R" "REG_CLM001"
+
+# Fulfill the REG_PRES001 via pharmacy (exercises the full write path post-gossip-fix).
+R=$(invoke '{"function":"fulfillPrescription","Args":["REG_PRES001"]}' $PHARMA)
+tc "Gossip regression: REG_PRES001 fulfillable via pharmacy (full round-trip)" "$R" "fulfilled"
 
 # =============================================================================
 # FINAL SUMMARY

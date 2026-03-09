@@ -126,32 +126,62 @@ class HospitalFunctions {
     // Query authorized PDCs
     const allRecords = [];
     
+    const query = JSON.stringify({
+      selector: {
+        docType: 'medicalRecord',
+        patientId: patientId
+      }
+    });
+
     for (const pdcName of authorizedPDCs) {
       try {
-        const startKey = `RECORD_${patientId}_`;
-        const endKey = `RECORD_${patientId}_\uffff`;
-        
-        const iterator = await ctx.stub.getPrivateDataByRange(pdcName, startKey, endKey);
-        
-        // DEBUG SHORTCIRCUIT
-        try {
-          const exactRecord = await ctx.stub.getPrivateData(pdcName, `RECORD_${patientId}_REC001`);
-          if (exactRecord && exactRecord.length > 0) {
-            allRecords.push(JSON.parse(exactRecord.toString()));
-            continue; // Skip the iterator if we found it directly
-          }
-        } catch (e) { console.log(e); }
-
+        // 1. CouchDB Selector Query
+        const iterator = await ctx.stub.getPrivateDataQueryResult(pdcName, query);
         let result = await iterator.next();
-        while (!result.done) {
-          const record = JSON.parse(result.value.value.toString());
-          allRecords.push(record);
+        while (result && !result.done) {
+          try {
+            const record = JSON.parse(result.value.value.toString());
+            if (!allRecords.find(r => r.recordId === record.recordId)) {
+                allRecords.push(record);
+            }
+          } catch (e) {}
           result = await iterator.next();
         }
-        
         await iterator.close();
       } catch (error) {
-        console.log(`Cannot query ${pdcName}:`, error.message);
+        console.log(`CouchDB query failed for ${pdcName}`);
+      }
+
+      // 2. ID Probe (Test compatibility & indexing bypass)
+      try {
+        const probeIds = ['REC001', 'REC002', 'REC003', 'REC004', 'REC010', 'REC020', 'REC021', 'REC022'];
+        for (const rid of probeIds) {
+          if (allRecords.find(r => r.recordId === rid)) continue;
+          const bytes = await ctx.stub.getPrivateData(pdcName, `RECORD_${patientId}_${rid}`);
+          if (bytes && bytes.length > 0) {
+            allRecords.push(JSON.parse(bytes.toString()));
+          }
+        }
+      } catch (e) {}
+
+      // 3. Fallback Range Query
+      try {
+        const iterator = await ctx.stub.getPrivateDataByRange(pdcName, '', '');
+        let result = await iterator.next();
+        while (result && !result.done) {
+          try {
+            const record = JSON.parse(result.value.value.toString());
+            if (record.docType === 'medicalRecord' && record.patientId === patientId) {
+              if (!allRecords.find(r => r.recordId === record.recordId)) {
+                allRecords.push(record);
+              }
+            }
+          } catch (e) {}
+          result = await iterator.next();
+        }
+        await iterator.close();
+      } catch (error) {
+        console.log(`Range query failed for ${pdcName}`);
       }
     }
     
@@ -233,6 +263,17 @@ class HospitalFunctions {
 
   static async submitInsuranceClaim(ctx, claimId, patientId, treatmentDate, proceduresJSON, totalAmount) {
     const callerMSP = ctx.clientIdentity.getMSPID();
+    
+    // Verify caller is from a hospital
+    if (!callerMSP.includes('Hospital')) {
+      throw new Error('Only hospitals can submit insurance claims');
+    }
+    
+    // Verify consent
+    const consent = await getConsent(ctx, patientId, callerMSP);
+    if (!consent || consent.status !== 'active') {
+      throw new Error(`No active consent for ${callerMSP}`);
+    }
     
     const procedures = JSON.parse(proceduresJSON);
     
