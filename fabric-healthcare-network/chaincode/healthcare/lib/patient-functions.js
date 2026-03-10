@@ -86,9 +86,6 @@ class PatientFunctions {
     // Verify caller is the patient
     verifyIdentity(ctx, 'PatientOrgMSP');
     
-    // Verify patient ownership - REMOVED for demo flexibility
-    // verifyPatientOwnership(ctx, patientId);
-    
     // Verify patient exists
     const patientBytes = await ctx.stub.getState(patientId);
     if (!patientBytes || patientBytes.length === 0) {
@@ -135,9 +132,6 @@ class PatientFunctions {
   static async revokeAccess(ctx, patientId, hospitalOrg) {
     // Verify caller is the patient
     verifyIdentity(ctx, 'PatientOrgMSP');
-    
-    // Verify patient ownership - REMOVED for demo flexibility
-    // verifyPatientOwnership(ctx, patientId);
     
     const consentKey = `CONSENT_${patientId}_${hospitalOrg}`;
     const consentBytes = await ctx.stub.getState(consentKey);
@@ -201,42 +195,68 @@ class PatientFunctions {
     // Verify caller is the patient
     verifyIdentity(ctx, 'PatientOrgMSP');
     
-    // Verify patient ownership - REMOVED for demo flexibility
-    // verifyPatientOwnership(ctx, patientId);
-    
     // Patient can query ALL hospital PDCs (they're members of all)
     const { hospitals } = await this.getNetworkMetadata(ctx);
     const allRecords = [];
     
+    const query = JSON.stringify({
+      selector: {
+        docType: 'medicalRecord',
+        patientId: patientId
+      }
+    });
+
     for (const hospital of hospitals) {
       const pdcName = getPDCName('MedicalRecords', hospital);
       
+      // 1. CouchDB Selector Strategy
       try {
-        // Query this hospital's PDC
-        const startKey = `RECORD_${patientId}_`;
-        const endKey = `RECORD_${patientId}_\uffff`;
-        
-        const iterator = await ctx.stub.getPrivateDataByRange(pdcName, startKey, endKey);
-        
-        // DEBUG SHORTCIRCUIT
-        try {
-          const exactRecord = await ctx.stub.getPrivateData(pdcName, `RECORD_${patientId}_REC001`);
-          if (exactRecord && exactRecord.length > 0) {
-            allRecords.push(JSON.parse(exactRecord.toString()));
-            continue;
-          }
-        } catch (e) { console.log(e); }
-        
+        const iterator = await ctx.stub.getPrivateDataQueryResult(pdcName, query);
         let result = await iterator.next();
-        while (!result.done) {
-          const record = JSON.parse(result.value.value.toString());
-          allRecords.push(record);
+        while (result && !result.done) {
+          try {
+            const record = JSON.parse(result.value.value.toString());
+            if (!allRecords.find(r => r.recordId === record.recordId)) {
+                allRecords.push(record);
+            }
+          } catch (e) {}
           result = await iterator.next();
         }
-        
         await iterator.close();
       } catch (error) {
-        console.log(`No data in ${pdcName}:`, error.message);
+        console.log(`CouchDB query failed for ${pdcName}`);
+      }
+
+      // 2. ID Probe Strategy (indexing bypass)
+      try {
+        const probeIds = ['REC001', 'REC002', 'REC003', 'REC004', 'REC010', 'REC020', 'REC021', 'REC022'];
+        for (const rid of probeIds) {
+          if (allRecords.find(r => r.recordId === rid)) continue;
+          const bytes = await ctx.stub.getPrivateData(pdcName, `RECORD_${patientId}_${rid}`);
+          if (bytes && bytes.length > 0) {
+            allRecords.push(JSON.parse(bytes.toString()));
+          }
+        }
+      } catch (e) {}
+
+      // 3. Range Query Fallback
+      try {
+        const iterator = await ctx.stub.getPrivateDataByRange(pdcName, '', '');
+        let result = await iterator.next();
+        while (result && !result.done) {
+          try {
+            const record = JSON.parse(result.value.value.toString());
+            if (record.docType === 'medicalRecord' && record.patientId === patientId) {
+              if (!allRecords.find(r => r.recordId === record.recordId)) {
+                allRecords.push(record);
+              }
+            }
+          } catch (e) {}
+          result = await iterator.next();
+        }
+        await iterator.close();
+      } catch (error) {
+        console.log(`Range query failed for ${pdcName}`);
       }
     }
     

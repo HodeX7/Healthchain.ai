@@ -4,13 +4,19 @@ const { getPDCName, verifyIdentity, createAuditLog, getTimestamp } = require('./
 class LabFunctions {
   static async viewLabOrders(ctx, labOrg) {
     verifyIdentity(ctx, 'LabOrgMSP');
-    const iterator = await ctx.stub.getStateByRange('', '');
+    
+    // Use targeted key prefix instead of full world-state scan
+    const iterator = await ctx.stub.getStateByRange('ORD', 'ORD\uffff');
     const orders = [];
     let result = await iterator.next();
     while (!result.done) {
-      const record = JSON.parse(result.value.value.toString());
-      if (record.docType === 'labOrder' && record.status === 'ordered') {
-        orders.push(record);
+      try {
+        const record = JSON.parse(result.value.value.toString());
+        if (record.docType === 'labOrder' && record.status === 'ordered') {
+          orders.push(record);
+        }
+      } catch (e) {
+        // Skip non-JSON or malformed entries
       }
       result = await iterator.next();
     }
