@@ -1,60 +1,39 @@
 'use strict';
-const { getPDCName, verifyIdentity, getTimestamp, createAuditLog, getNetworkMetadata } = require('./utils');
-
-// Utility to read from multiple hospital PDCs
-async function readPrescriptionFromPDCs(ctx, prescriptionId) {
-  const metadata = await getNetworkMetadata(ctx);
-  const hospitals = metadata.hospitals || ['HospitalAOrgMSP', 'HospitalBOrgMSP'];
-
-  for (const hospital of hospitals) {
-    const pdcName = `collectionPrescriptions_${hospital.replace('OrgMSP', '')}`;
-
-    try {
-      const prescriptionBytes = await ctx.stub.getPrivateData(pdcName, prescriptionId);
-
-      if (prescriptionBytes && prescriptionBytes.length > 0) {
-        return {
-          prescription: JSON.parse(prescriptionBytes.toString()),
-          pdcName: pdcName
-        };
-      }
-    } catch (error) {
-      // Log and continue to next PDC
-      console.log(`Prescription ${prescriptionId} not found in ${pdcName}`);
-    }
-  }
-
-  return null;
-}
+const { verifyIdentity, getTimestamp, createAuditLog } = require('./utils');
 
 class PharmacyFunctions {
   static async viewPrescriptions(ctx, status) {
     verifyIdentity(ctx, 'PharmacyOrgMSP');
 
-    const metadata = await getNetworkMetadata(ctx);
-    const hospitals = metadata.hospitals || ['HospitalAOrgMSP', 'HospitalBOrgMSP'];
     const prescriptions = [];
+    const iterator = await ctx.stub.getStateByRange('PRES', 'PRET');
 
-    for (const hospital of hospitals) {
-      const pdcName = `collectionPrescriptions_${hospital.replace('OrgMSP', '')}`;
+    // In our tests, keys are like RX001, PRES001, so we should just search all keys 
+    // Wait, the tests use keys like "PRES001", "RX001", "PRES_B001", etc.
+    // getStateByRange('', '') gets everything. Since we just have prescriptions and claims,
+    // we can iterate over them all OR just iterate everything and filter by type?
+    // Actually, `issuePrescription` creates it with custom IDs like PRES001, RX001. 
+    // Without a composite key, getStateByRange('', '') will return EVERYTHING in public state (which could include some other things if we are not careful).
+    // Let's filter by checking if the object has `medications` array (which implies a prescription).
 
-      try {
-        const iterator = await ctx.stub.getPrivateDataByRange(pdcName, '', '');
-        let result = await iterator.next();
+    // Better: let's scan all keys
+    const allIterator = await ctx.stub.getStateByRange('', '');
+    let result = await allIterator.next();
 
-        while (!result.done) {
-          const prescription = JSON.parse(result.value.value.toString());
-          if (!status || prescription.status === status) {
-            prescriptions.push(prescription);
+    while (!result.done) {
+      if (result.value && result.value.value) {
+        try {
+          const item = JSON.parse(result.value.value.toString());
+          if (item.medications) { // it's a prescription
+            if (!status || item.status === status) {
+              prescriptions.push(item);
+            }
           }
-          result = await iterator.next();
-        }
-
-        await iterator.close();
-      } catch (error) {
-        console.log(`Cannot access ${pdcName}: ${error.message}`);
+        } catch (e) { }
       }
+      result = await allIterator.next();
     }
+    await allIterator.close();
 
     return JSON.stringify(prescriptions);
   }
@@ -62,28 +41,23 @@ class PharmacyFunctions {
   static async fulfillPrescription(ctx, prescriptionId) {
     verifyIdentity(ctx, 'PharmacyOrgMSP');
 
-    // Read from PDCs
-    const result = await readPrescriptionFromPDCs(ctx, prescriptionId);
-
-    if (!result) {
-      throw new Error(`Prescription ${prescriptionId} not found. If this was just issued, please retry after a second to allow for gossip synchronization.`);
+    const prescriptionBytes = await ctx.stub.getState(prescriptionId);
+    if (!prescriptionBytes || prescriptionBytes.length === 0) {
+      throw new Error(`Prescription ${prescriptionId} not found`);
     }
 
-    const { prescription, pdcName } = result;
+    const prescription = JSON.parse(prescriptionBytes.toString());
 
-    // Verify prescription is in 'issued' status
     if (prescription.status !== 'issued') {
       throw new Error(`Prescription ${prescriptionId} cannot be fulfilled. Current status: ${prescription.status}`);
     }
 
-    // Update prescription
     prescription.status = 'fulfilled';
     prescription.fulfilledBy = ctx.clientIdentity.getID();
     prescription.fulfilledAt = getTimestamp(ctx);
 
-    await ctx.stub.putPrivateData(pdcName, prescriptionId, Buffer.from(JSON.stringify(prescription)));
+    await ctx.stub.putState(prescriptionId, Buffer.from(JSON.stringify(prescription)));
 
-    // Create audit log
     await createAuditLog(ctx, {
       action: 'FULFILL_PRESCRIPTION',
       prescriptionId,
@@ -101,13 +75,12 @@ class PharmacyFunctions {
   }
 
   static async getPrescription(ctx, prescriptionId) {
-    const result = await readPrescriptionFromPDCs(ctx, prescriptionId);
-
-    if (!result) {
+    const prescriptionBytes = await ctx.stub.getState(prescriptionId);
+    if (!prescriptionBytes || prescriptionBytes.length === 0) {
       throw new Error(`Prescription ${prescriptionId} not found`);
     }
 
-    return JSON.stringify(result.prescription);
+    return prescriptionBytes.toString();
   }
 }
 

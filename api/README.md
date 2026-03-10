@@ -9,7 +9,6 @@ This is the central Express.js REST API for the HealthChain Hyperledger Fabric n
 **1. Start the Blockchain Network**
 The API requires the underlying Hyperledger Fabric network to be running first.
 ```bash
-cd ..
 ./network/scripts/full_build.sh
 ```
 
@@ -21,6 +20,57 @@ npm install
 npm start
 ```
 *The server will start on `http://localhost:3000`.*
+
+---
+
+## ⚡ Quick Test Full Suite
+
+If you want to run every single endpoint sequentially from beginning to end to verify the network is healthy, you can copy and paste this combined command into your terminal:
+
+```bash
+# Wait for the background server to stabilize, then run all 14 tests:
+echo "1. Registering Patient..."
+curl -sX POST "http://localhost:3000/api/patient/register" -H "Content-Type: application/json" -d '{"id":"PAT001", "firstName":"Alice", "lastName":"Smith", "dob":"1990-05-15", "bloodGroup":"O+", "email":"alice@mail.com", "phone":"1234567890"}' && echo -e "\n" && sleep 2
+
+echo "2. Fetching Patient Profile..."
+curl -s "http://localhost:3000/api/patient/PAT001" && echo -e "\n"
+
+echo "3. Hospital Requesting Access..."
+curl -sX POST "http://localhost:3000/api/hospital/access/request" -H "Content-Type: application/json" -d '{"patientId":"PAT001"}' && echo -e "\n" && sleep 2
+
+echo "4. Patient Granting Access to HospitalA..."
+curl -sX POST "http://localhost:3000/api/patient/PAT001/consents/grant" -H "Content-Type: application/json" -d '{"hospitalMsp":"HospitalAOrgMSP","collections":["collectionMedicalRecords_HospitalA","collectionLabReports_HospitalA","collectionPrescriptions_HospitalA", "collectionInsuranceClaims_HospitalA"]}' && echo -e "\n" && sleep 2
+
+echo "5. Ordering Lab Test..."
+curl -sX POST "http://localhost:3000/api/hospital/lab-orders" -H "Content-Type: application/json" -d '{"orderId":"ORD001", "patientId":"PAT001", "testName":"Blood Panel", "priority":"high"}' && echo -e "\n" && sleep 2
+
+echo "6. Lab Uploading Report..."
+curl -sX POST "http://localhost:3000/api/lab/reports" -H "Content-Type: application/json" -d '{"reportId":"REP001", "orderId":"ORD001", "patientId":"PAT001", "testName":"Blood Panel", "testResults":{"WBC":7.5,"RBC":4.8}}' && echo -e "\n" && sleep 2
+
+echo "7. Creating Medical Record..."
+curl -sX POST "http://localhost:3000/api/hospital/records" -H "Content-Type: application/json" -d '{"recordId":"REC001", "patientId":"PAT001", "recordType":"diagnosis", "diagnosis":"Hypertension", "treatment":"Rest and medication"}' && echo -e "\n" && sleep 2
+
+echo "8. Issuing Prescription..."
+curl -sX POST "http://localhost:3000/api/hospital/prescriptions" -H "Content-Type: application/json" -d '{"prescriptionId":"RX001","patientId":"PAT001","diagnosis":"Hypertension","medications":[{"name":"Lisinopril","dosage":"10mg"}],"validUntil":"2026-12-31"}' && echo -e "\n" && sleep 4
+
+echo "9. Pharmacy Viewing Pending Prescriptions..."
+curl -s "http://localhost:3000/api/pharmacy/prescriptions/pending" && echo -e "\n"
+
+echo "10. Pharmacy Fulfilling Prescription..."
+curl -sX POST "http://localhost:3000/api/pharmacy/prescriptions/fulfill" -H "Content-Type: application/json" -d '{"prescriptionId":"RX001"}' && echo -e "\n" && sleep 2
+
+echo "11. Submitting Insurance Claim..."
+curl -sX POST "http://localhost:3000/api/hospital/insurance-claims" -H "Content-Type: application/json" -d '{"claimId":"CLM001","patientId":"PAT001","serviceDate":"2026-03-09","procedures":[{"code":"99213","cost":150.00}],"totalAmount":150}' && echo -e "\n" && sleep 4
+
+echo "12. Insurance Viewing Pending Claims..."
+curl -s "http://localhost:3000/api/insurance/claims/pending" && echo -e "\n"
+
+echo "13. Insurance Approving Claim..."
+curl -sX POST "http://localhost:3000/api/insurance/claims/approve" -H "Content-Type: application/json" -d '{"claimId":"CLM001","approvedAmount":150,"remarks":"Approved in full"}' && echo -e "\n" && sleep 2
+
+echo "14. Patient Viewing Audit Trail..."
+curl -s "http://localhost:3000/api/patient/PAT001/audit-logs" && echo -e "\n"
+```
 
 ---
 
