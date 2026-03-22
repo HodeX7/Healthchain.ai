@@ -28,6 +28,22 @@ class UploadController {
             res.status(500).json({ success: false, error: error.message });
         }
     }
+    static async getSignedDownloadUrl(req, res) {
+        try {
+            const { documentUrl } = req.body;
+
+            if (!documentUrl || !documentUrl.startsWith('gs://')) {
+                return res.status(400).json({ success: false, error: 'Valid GCS documentUrl string is required' });
+            }
+
+            const downloadUrl = await GCSService.generateDownloadUrl(documentUrl);
+
+            res.status(200).json({ success: true, downloadUrl });
+        } catch (error) {
+            console.error(`Error generating download URL: ${error.message}`);
+            res.status(500).json({ success: false, error: error.message });
+        }
+    }
 }
 
 module.exports = UploadController;

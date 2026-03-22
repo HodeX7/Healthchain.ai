@@ -1,0 +1,345 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <title>HealthChain Manual Tester</title>
+    <style>
+        body {
+            font-family: monospace;
+            padding: 20px;
+            background: #f9f9f9;
+        }
+
+        .section {
+            background: white;
+            border: 1px solid #ddd;
+            padding: 15px;
+            margin-bottom: 20px;
+        }
+
+        .section h3 {
+            margin-top: 0;
+            color: #333;
+        }
+
+        label {
+            display: inline-block;
+            width: 120px;
+            font-weight: bold;
+        }
+
+        input[type="text"],
+        input[type="date"],
+        input[type="file"] {
+            margin-bottom: 5px;
+            width: 250px;
+        }
+
+        button {
+            margin-top: 10px;
+            padding: 5px 10px;
+            cursor: pointer;
+        }
+
+        pre {
+            background: #eee;
+            padding: 10px;
+            overflow-x: auto;
+            max-height: 200px;
+        }
+
+        .header-config {
+            background: #333;
+            color: white;
+            padding: 15px;
+            margin-bottom: 20px;
+        }
+
+        .header-config input {
+            width: 300px;
+        }
+    </style>
+</head>
+
+<body>
+
+    <div class="header-config">
+        <h2>HealthChain API Tester</h2>
+        <label style="width: auto;">Backend URL:</label>
+        <input type="text" id="baseUrl" value="http://34.46.78.234:3000">
+    </div>
+
+    <!-- Core Logic -->
+    <script>
+        async function runApi(endpointName, method, path, bodyObj = null, fileInputId = null) {
+            const baseUrl = document.getElementById('baseUrl').value;
+            const outputEl = document.getElementById('out_' + endpointName);
+            outputEl.innerText = 'Processing...';
+
+            try {
+                // 1. Handle File Upload to Google Cloud Storage
+                if (fileInputId) {
+                    const fileInput = document.getElementById(fileInputId);
+                    if (fileInput && fileInput.files.length > 0) {
+                        outputEl.innerText = 'Uploading PDF to Google Cloud Storage...';
+                        const file = fileInput.files[0];
+
+                        // Get Signed URL
+                        const signRes = await fetch(`${baseUrl}/api/documents/upload-url`, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ fileName: file.name, contentType: file.type })
+                        });
+                        const signData = await signRes.json();
+
+                        if (!signData.success) throw new Error("Failed to get GCS URL: " + signData.error);
+
+                        // Upload straight to Google Cloud
+                        const uploadRes = await fetch(signData.uploadUrl, {
+                            method: 'PUT',
+                            headers: { 'Content-Type': file.type },
+                            body: file
+                        });
+
+                        if (!uploadRes.ok) throw new Error("Failed to upload file to Google Cloud Storage");
+
+                        // Append the GCS URL to the blockchain payload
+                        bodyObj.documentUrl = signData.documentUrl;
+                    }
+                }
+
+                // 2. Call the targeted API
+                outputEl.innerText = 'Sending transaction to Blockchain API...';
+                const opts = {
+                    method: method,
+                    headers: { 'Content-Type': 'application/json' }
+                };
+                if (bodyObj) opts.body = JSON.stringify(bodyObj);
+
+                const res = await fetch(baseUrl + path, opts);
+                const data = await res.json();
+
+                // 3. Print output
+                outputEl.innerText = JSON.stringify(data, null, 2);
+
+                // 4. Smart Auto-Fill for subsequent forms
+                if (data && data.success && data.data) {
+                    const d = data.data;
+                    if (d.orderId) {
+                        const nextInput = document.getElementById('lab_rep_ord');
+                        if (nextInput) nextInput.value = d.orderId;
+                    }
+                    if (d.prescriptionId) {
+                        const fRxId = document.getElementById('f_rx_id');
+                        if (fRxId) fRxId.value = d.prescriptionId;
+                    }
+                }
+
+                // 5. Hydrate PDFs for rendering automatically!
+                if (data && data.success) {
+                    const findPdfs = async (obj) => {
+                        let linksHtml = '';
+                        // Traverse deep arrays if searching global medical profile
+                        const items = Array.isArray(obj) ? obj : [obj];
+                        for (const raw of items) {
+                            if (raw && (raw.s3Key || raw.documentUrl)) {
+                                const targetUrl = raw.s3Key || raw.documentUrl;
+                                if (targetUrl.startsWith('gs://')) {
+                                    try {
+                                        const res = await fetch(`${baseUrl}/api/documents/download-url`, {
+                                            method: 'POST',
+                                            headers: { 'Content-Type': 'application/json' },
+                                            body: JSON.stringify({ documentUrl: targetUrl })
+                                        });
+                                        const urlData = await res.json();
+                                        if (urlData.downloadUrl) {
+                                            linksHtml += `<a href="${urlData.downloadUrl}" target="_blank" style="display:inline-block; margin: 10px 10px 0 0; background: #2196f3; color: white; padding: 10px 15px; text-decoration: none; border-radius: 5px;">📄 View ${raw.docType} PDF</a>`;
+                                        }
+                                    } catch (e) {
+                                        console.error('Failed to parse download URL', e);
+                                    }
+                                }
+                            }
+                        }
+                        if (linksHtml) {
+                            outputEl.innerHTML = outputEl.innerHTML + `<br><br><b>Attachments Found:</b><br>` + linksHtml;
+                        }
+                    };
+                    await findPdfs(data.data);
+                }
+
+            } catch (err) {
+                outputEl.innerText = 'Error:\n' + err.message;
+            }
+        }
+
+        // Global Sync logic so changing one Patient ID updates the rest
+        function syncPatientIds(val) {
+            const ids = ['get_pat_id', 'req_pat_id', 'grant_pat_id', 'rec_pat', 'lab_pat', 'lab_rep_pat', 'rx_pat', 'claim_pat', 'audit_pat', 'prof_pat'];
+            ids.forEach(id => {
+                const el = document.getElementById(id);
+                if (el) el.value = val;
+            });
+        }
+    </script>
+
+    <!-- 1. Patient Registration -->
+    <div class="section">
+        <h3>1. Register Patient</h3>
+        <label>ID:</label> <input type="text" id="reg_id" value="PAT002" oninput="syncPatientIds(this.value)"><br>
+        <label>First Name:</label> <input type="text" id="reg_fn" value="Bob"><br>
+        <label>Last Name:</label> <input type="text" id="reg_ln" value="Johnson"><br>
+        <label>DOB:</label> <input type="date" id="reg_dob" value="1985-08-20"><br>
+        <button
+            onclick="runApi('reg_pat', 'POST', '/api/patient/register', {id: document.getElementById('reg_id').value, firstName: document.getElementById('reg_fn').value, lastName: document.getElementById('reg_ln').value, dob: document.getElementById('reg_dob').value, bloodGroup: 'A-', email: 'bob@mail.com', phone: '0987654321'})">Register
+            Patient</button>
+        <pre id="out_reg_pat">Output will appear here...</pre>
+    </div>
+
+    <!-- 2. Get Patient -->
+    <div class="section">
+        <h3>2. Fetch Patient Profile</h3>
+        <label>Patient ID:</label> <input type="text" id="get_pat_id" value="PAT002"><br>
+        <button onclick="runApi('get_pat', 'GET', `/api/patient/${document.getElementById('get_pat_id').value}`)">Fetch
+            Profile</button>
+        <pre id="out_get_pat">Output will appear here...</pre>
+    </div>
+
+    <!-- 3. Request Access -->
+    <div class="section">
+        <h3>3. Hospital Request Access</h3>
+        <label>Patient ID:</label> <input type="text" id="req_pat_id" value="PAT002"><br>
+        <button
+            onclick="runApi('req_access', 'POST', '/api/hospital/access/request', {patientId: document.getElementById('req_pat_id').value})">Request
+            Access to Records</button>
+        <pre id="out_req_access">Output will appear here...</pre>
+    </div>
+
+    <!-- 4. Grant Access -->
+    <div class="section">
+        <h3>4. Patient Grants Access to HospitalA</h3>
+        <label>Patient ID:</label> <input type="text" id="grant_pat_id" value="PAT002"><br>
+        <button
+            onclick="runApi('grant_access', 'POST', `/api/patient/${document.getElementById('grant_pat_id').value}/consents/grant`, {hospitalMsp: 'HospitalAOrgMSP', collections: ['collectionMedicalRecords_HospitalA', 'collectionLabReports_HospitalA', 'collectionPrescriptions_HospitalA', 'collectionInsuranceClaims_HospitalA']})">Grant
+            Access</button>
+        <pre id="out_grant_access">Output will appear here...</pre>
+    </div>
+
+    <!-- 5. Create Record -->
+    <div class="section" style="border-left: 5px solid #2196f3;">
+        <h3>5. Doctor Creates Medical Record (Optional PDF)</h3>
+        <label>Record ID:</label> <input type="text" id="rec_id" value="REC002"><br>
+        <label>Patient ID:</label> <input type="text" id="rec_pat" value="PAT002"><br>
+        <label>Diagnosis:</label> <input type="text" id="rec_diag" value="Asthma"><br>
+        <label>Attach PDF (GCS):</label> <input type="file" id="rec_file" accept="application/pdf"><br>
+        <button
+            onclick="runApi('create_rec', 'POST', '/api/hospital/records', {recordId: document.getElementById('rec_id').value, patientId: document.getElementById('rec_pat').value, recordType: 'diagnosis', diagnosis: document.getElementById('rec_diag').value, treatment: 'Inhaler'}, 'rec_file')">Save
+            Medical Record to Ledger</button>
+        <pre id="out_create_rec">Output will appear here...</pre>
+    </div>
+
+    <!-- 6. Lab Order -->
+    <div class="section">
+        <h3>6. Order Lab Test</h3>
+        <label>Patient ID:</label> <input type="text" id="lab_pat" value="PAT002"><br>
+        <button
+            onclick="runApi('lab_order', 'POST', '/api/hospital/lab-orders', {orderId: ('ORD' + Math.floor(Math.random()*1000)), patientId: document.getElementById('lab_pat').value, testName: 'Chest X-Ray', priority: 'high'})">Submit
+            Lab Order</button>
+        <pre id="out_lab_order">Output will appear here...</pre>
+    </div>
+
+    <!-- 7. Lab Report -->
+    <div class="section" style="border-left: 5px solid #2196f3;">
+        <h3>7. Lab Uploads Report (Optional PDF)</h3>
+        <label>Order ID (from above):</label> <input type="text" id="lab_rep_ord" value="ORD..."><br>
+        <label>Patient ID:</label> <input type="text" id="lab_rep_pat" value="PAT002"><br>
+        <label>Attach PDF (GCS):</label> <input type="file" id="lab_file" accept="application/pdf"><br>
+        <button
+            onclick="runApi('lab_rep', 'POST', '/api/lab/reports', {reportId: ('REP' + Math.floor(Math.random()*1000)), orderId: document.getElementById('lab_rep_ord').value, patientId: document.getElementById('lab_rep_pat').value, testName: 'Chest X-Ray', testResults: {Lungs: 'Clear'}}, 'lab_file')">Upload
+            Report</button>
+        <pre id="out_lab_rep">Output will appear here...</pre>
+    </div>
+
+    <!-- 8. Issue Prescription -->
+    <div class="section" style="border-left: 5px solid #2196f3;">
+        <h3>8. Issue Prescription (Optional PDF)</h3>
+        <label>Prescription ID:</label> <input type="text" id="rx_id" value="RX002"><br>
+        <label>Patient ID:</label> <input type="text" id="rx_pat" value="PAT002"><br>
+        <label>Attach PDF (GCS):</label> <input type="file" id="rx_file" accept="application/pdf"><br>
+        <button
+            onclick="runApi('issue_rx', 'POST', '/api/hospital/prescriptions', {prescriptionId: document.getElementById('rx_id').value, patientId: document.getElementById('rx_pat').value, diagnosis: 'Asthma', medications: [{name: 'Albuterol', dosage: '2 puffs'}], validUntil: '2026-12-31'}, 'rx_file')">Issue
+            Prescription</button>
+        <pre id="out_issue_rx">Output will appear here...</pre>
+    </div>
+
+    <!-- 9. Pending Rx -->
+    <div class="section">
+        <h3>9. Pharmacy Views Pending Prescriptions</h3>
+        <button onclick="runApi('get_rx', 'GET', '/api/pharmacy/prescriptions/pending')">View Open
+            Prescriptions</button>
+        <pre id="out_get_rx">Output will appear here...</pre>
+    </div>
+
+    <!-- 10. Fulfill Rx -->
+    <div class="section">
+        <h3>10. Pharmacy Fulfills Prescription</h3>
+        <label>Prescription ID:</label> <input type="text" id="f_rx_id" value="RX002"><br>
+        <button
+            onclick="runApi('ful_rx', 'POST', '/api/pharmacy/prescriptions/fulfill', {prescriptionId: document.getElementById('f_rx_id').value})">Mark
+            as Fulfilled</button>
+        <pre id="out_ful_rx">Output will appear here...</pre>
+    </div>
+
+    <!-- 11. Insurance Claim -->
+    <div class="section" style="border-left: 5px solid #2196f3;">
+        <h3>11. Submit Insurance Claim (Optional PDF)</h3>
+        <label>Claim ID:</label> <input type="text" id="claim_id" value="CLM002"><br>
+        <label>Patient ID:</label> <input type="text" id="claim_pat" value="PAT002"><br>
+        <label>Attach PDF (GCS):</label> <input type="file" id="cl_file" accept="application/pdf"><br>
+        <button
+            onclick="runApi('sub_claim', 'POST', '/api/hospital/insurance-claims', {claimId: document.getElementById('claim_id').value, patientId: document.getElementById('claim_pat').value, serviceDate: '2026-03-21', procedures: [{code: '12345', cost: 100}], totalAmount: 100}, 'cl_file')">Submit
+            Claim</button>
+        <pre id="out_sub_claim">Output will appear here...</pre>
+    </div>
+
+    <!-- 12. Pending Claims -->
+    <div class="section">
+        <h3>12. Insurance Views Pending Claims</h3>
+        <button onclick="runApi('get_claims', 'GET', '/api/insurance/claims/pending')">View Open Claims</button>
+        <pre id="out_get_claims">Output will appear here...</pre>
+    </div>
+
+    <!-- 13. Approve Claim -->
+    <div class="section">
+        <h3>13. Insurance Approves Claim</h3>
+        <label>Claim ID:</label> <input type="text" id="app_claim_id" value="CLM002"><br>
+        <button
+            onclick="runApi('app_claim', 'POST', '/api/insurance/claims/approve', {claimId: document.getElementById('app_claim_id').value, approvedAmount: 100, remarks: 'Verified'})">Approve
+            Claim</button>
+        <pre id="out_app_claim">Output will appear here...</pre>
+    </div>
+
+    <!-- 14. View Audit Logs -->
+    <div class="section">
+        <h3>14. View Audit Trail</h3>
+        <label>Patient ID:</label> <input type="text" id="audit_pat" value="PAT002"><br>
+        <button
+            onclick="runApi('audit', 'GET', `/api/patient/${document.getElementById('audit_pat').value}/audit-logs`)">View
+            Blockchain Ledger History</button>
+        <pre id="out_audit">Output will appear here...</pre>
+    </div>
+
+    <!-- 15. View Full Records -->
+    <div class="section">
+        <h3>15. View Full Private Medical Profile</h3>
+        <label>Patient ID:</label> <input type="text" id="prof_pat" value="PAT002"><br>
+        <button
+            onclick="runApi('prof', 'GET', `/api/hospital/patients/${document.getElementById('prof_pat').value}/records`)">Fetch
+            Decrypted Medical Data</button>
+        <pre id="out_prof">Output will appear here...</pre>
+    </div>
+
+</body>
+
+</html>
