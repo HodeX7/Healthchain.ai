@@ -128,7 +128,7 @@ class HospitalFunctions {
 
     const query = JSON.stringify({
       selector: {
-        docType: 'medicalRecord',
+        docType: { "$in": ["medicalRecord", "labReport"] },
         patientId: patientId
       }
     });
@@ -141,7 +141,8 @@ class HospitalFunctions {
         while (result && !result.done) {
           try {
             const record = JSON.parse(result.value.value.toString());
-            if (!allRecords.find(r => r.recordId === record.recordId)) {
+            const idField = record.recordId || record.reportId;
+            if (!allRecords.find(r => (r.recordId || r.reportId) === idField)) {
               allRecords.push(record);
             }
           } catch (e) { }
@@ -171,8 +172,9 @@ class HospitalFunctions {
         while (result && !result.done) {
           try {
             const record = JSON.parse(result.value.value.toString());
-            if (record.docType === 'medicalRecord' && record.patientId === patientId) {
-              if (!allRecords.find(r => r.recordId === record.recordId)) {
+            if ((record.docType === 'medicalRecord' || record.docType === 'labReport') && record.patientId === patientId) {
+              const idField = record.recordId || record.reportId;
+              if (!allRecords.find(r => (r.recordId || r.reportId) === idField)) {
                 allRecords.push(record);
               }
             }
