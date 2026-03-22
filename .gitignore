@@ -67,3 +67,15 @@ installed*.txt
 network/scripts/installed.txt
 network/scripts/*.tar.gz
 network/scripts/*.txt
+
+# SSH Deployment Keys
+github_deploy_key
+github_deploy_key.pub
+
+# Terraform State and Config
+infrastructure/.terraform/
+infrastructure/.terraform.lock.hcl
+infrastructure/terraform.tfstate
+infrastructure/terraform.tfstate.*
+infrastructure/terraform.tfvars
+infrastructure/terraform.tfvars.save
