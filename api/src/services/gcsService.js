@@ -7,13 +7,7 @@ const bucketName = process.env.GCS_BUCKET_NAME || 'healthchain-secure-docs';
 
 class GCSService {
     static async generateUploadUrl(fileName, contentType) {
-        if (!process.env.GOOGLE_APPLICATION_CREDENTIALS) {
-            console.warn('GCP Credentials not found. Returning a mock URL for development.');
-            return {
-                uploadUrl: `https://mock-gcp-storage.local/upload/${fileName}`,
-                documentUrl: `gs://${bucketName}/${fileName}`
-            };
-        }
+
 
         const options = {
             version: 'v4',
@@ -38,10 +32,7 @@ class GCSService {
             return null;
         }
 
-        if (!process.env.GOOGLE_APPLICATION_CREDENTIALS) {
-            console.warn('GCP Credentials not found. Returning a mock Download URL.');
-            return `https://mock-gcp-storage.local/download?file=${documentUrl}`;
-        }
+
 
         const pathParts = documentUrl.replace(`gs://${bucketName}/`, '');
 
