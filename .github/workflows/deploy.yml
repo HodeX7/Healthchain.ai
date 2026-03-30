@@ -1,0 +1,39 @@
+name: Deploy HealthChain Backend API
+
+on:
+  push:
+    branches:
+      - backend
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Deploy securely via SSH
+        uses: appleboy/ssh-action@v1.0.3
+        env:
+          GCP_BUCKET_NAME: ${{ secrets.GCP_BUCKET_NAME }}
+        with:
+          host: ${{ secrets.VM_HOST_IP }}
+          username: ${{ secrets.VM_SSH_USERNAME }}
+          key: ${{ secrets.VM_SSH_PRIVATE_KEY }}
+          envs: GCP_BUCKET_NAME
+          script: |
+            if [ ! -d "Healthchain.ai" ]; then
+              git clone https://github.com/HodeX7/Healthchain.ai.git
+            fi
+            
+            cd Healthchain.ai
+            git fetch origin
+            git checkout backend
+            git reset --hard origin/backend
+            
+            cd api
+            npm install
+            
+            export GCS_BUCKET_NAME="$GCP_BUCKET_NAME"
+            
+            pm2 restart healthchain-api --update-env || pm2 start src/app.js --name "healthchain-api"
+            
+            echo "✅ Deployment successful. API is running on PM2."

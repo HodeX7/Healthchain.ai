@@ -1,1 +1,9 @@
 node_modules/
+github_deploy_key
+github_deploy_key.pub
+infrastructure/.terraform/
+infrastructure/.terraform.lock.hcl
+infrastructure/terraform.tfstate
+infrastructure/terraform.tfstate.*
+infrastructure/terraform.tfvars
+infrastructure/terraform.tfvars.save

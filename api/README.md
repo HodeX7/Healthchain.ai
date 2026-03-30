@@ -1,175 +1,322 @@
-# HealthChain Backend API
+# HealthChain Backend API — Documentation for Frontend Engineering
 
-This is the central Express.js REST API for the HealthChain Hyperledger Fabric network. It provides a modular, easily consumable interface to interact with the blockchain's smart contracts.
-
----
-
-## 🚀 Setup & Running
-
-**1. Start the Blockchain Network**
-The API requires the underlying Hyperledger Fabric network to be running first.
-```bash
-cd ..
-./network/scripts/full_build.sh
-```
-
-**2. Start the API Server**
-Open a new terminal window:
-```bash
-cd api
-npm install
-npm start
-```
-*The server will start on `http://localhost:3000`.*
+This is the central Express.js REST API for the HealthChain Hyperledger Fabric network. It securely links the Web Frontend and Google Cloud Storage securely to the underlying blockchain Smart Contracts.
 
 ---
 
-## 📡 API Endpoints & Testing Flow
-
-To properly test the blockchain, actions must happen in a logical medical sequence. Below is the step-by-step flow and the `curl` commands to test each API.
-
-### Phase 1: Patient Onboarding
-
-**1. Register a Patient (Patient Org)**
-Creates a new identity on the global ledger.
-```bash
-curl -X POST http://localhost:3000/api/patient/register \
--H "Content-Type: application/json" \
--d '{"id":"PAT001", "firstName":"Alice", "lastName":"Smith", "dob":"1990-05-15", "bloodGroup":"O+", "email":"alice@mail.com", "phone":"1234567890"}'
-```
-
-**2. Verify Registration (Patient Org)**
-```bash
-curl http://localhost:3000/api/patient/PAT001
-```
+> **Note for Frontend:** To hit these APIs in production, point your requests to `http://<HOST_IP>:3000`. 
+> *(Example: `http://34.46.78.234:3000/api/patient/register`)*
 
 ---
 
-### Phase 2: Hospital Visit & Consent
+## 📁 0. Google Cloud Storage (PDF Handling)
+Endpoints to handle gigabyte-sized files (Scans, Lab Reports, PDFs) efficiently without overloading the blockchain.
 
-**3. Hospital Requests Access (Hospital Org)**
-When Alice visits Hospital A, the hospital signals intent to access her history.
-```bash
-curl -X POST http://localhost:3000/api/hospital/access/request \
--H "Content-Type: application/json" \
--d '{"patientId":"PAT001"}'
-```
+### `POST /api/documents/upload-url`
+Retrieves a cryptographically signed URL to upload a file directly from the browser to Google Cloud Storage.
+* **Body:**
+  ```json
+  { 
+    "fileName": "scan.pdf", 
+    "contentType": "application/pdf" 
+  }
+  ```
+* **Expected Output:**
+  ```json
+  {
+    "success": true,
+    "message": "Signed URL generated...",
+    "uploadUrl": "https://storage.googleapis.com/...&X-Goog-Signature=...",
+    "documentUrl": "gs://healthchain-secure-docs/scan.pdf"
+  }
+  ```
+*(Frontend usage flow: 1. Fetch `uploadUrl`. 2. `PUT` the actual file buffer to `uploadUrl`. 3. Take the `documentUrl` and pass it into the APIs below under the `documentUrl` field!)*
 
-**4. Patient Grants Access (Patient Org)**
-Alice explicitly approves Hospital A to read/write to her private medical collections.
-```bash
-curl -X POST http://localhost:3000/api/patient/PAT001/consents/grant \
--H "Content-Type: application/json" \
--d '{
-  "hospitalMsp": "HospitalAOrgMSP",
-  "collections": [
-    "collectionMedicalRecords_HospitalA",
-    "collectionLabReports_HospitalA",
-    "collectionPrescriptions_HospitalA"
-  ]
-}'
-```
-
----
-
-### Phase 3: Medical Treatment
-
-**5. Doctor Creates Medical Record (Hospital Org)**
-The doctor securely logs a diagnosis to Alice's Private Data Collection.
-```bash
-curl -X POST http://localhost:3000/api/hospital/records \
--H "Content-Type: application/json" \
--d '{"recordId":"REC001", "patientId":"PAT001", "recordType":"diagnosis", "diagnosis":"Hypertension", "treatment":"Rest and medication"}'
-```
-
-**6. Doctor Orders Lab Test (Hospital Org)**
-```bash
-curl -X POST http://localhost:3000/api/hospital/lab-orders \
--H "Content-Type: application/json" \
--d '{"orderId":"ORD001", "patientId":"PAT001", "testName":"Blood Panel", "priority":"high"}'
-```
+### `POST /api/documents/download-url`
+Converts a raw Blockchain `gs://...` link into a short-lived, clickable HTTPS download link for the end-user.
+* **Body:**
+  ```json
+  { "documentUrl": "gs://healthchain-secure-docs/scan.pdf" }
+  ```
+* **Expected Output:**
+  ```json
+  {
+    "success": true,
+    "downloadUrl": "https://storage.googleapis.com/...&X-Goog-Signature=..."
+  }
+  ```
 
 ---
 
-### Phase 4: Diagnostic Lab
+## 👤 1. Patient Operations (`/api/patient`)
 
-**7. Lab Views Pending Orders (Lab Org)**
-```bash
-curl http://localhost:3000/api/lab/orders
-```
+### Register Patient
+`POST /api/patient/register`
+* **Body:**
+  ```json
+  {
+    "id": "PAT001",
+    "firstName": "Alice",
+    "lastName": "Smith",
+    "dob": "1990-05-15",
+    "bloodGroup": "O+",
+    "email": "alice@mail.com",
+    "phone": "1234567890"
+  }
+  ```
+* **Expected Output:**
+  ```json
+  {
+    "success": true,
+    "message": "Patient registered successfully",
+    "data": { "docType": "patient", "patientId": "PAT001", "firstName": "Alice", "createdAt": "..." }
+  }
+  ```
 
-**8. Lab Uploads Test Results (Lab Org)**
-The lab fulfills the order and adds the data to Alice's records.
-```bash
-curl -X POST http://localhost:3000/api/lab/reports \
--H "Content-Type: application/json" \
--d '{"reportId":"REP001", "orderId":"ORD001", "patientId":"PAT001", "testName":"Blood Panel", "testResults":{"WBC":7.5,"RBC":4.8}}'
-```
+### Fetch Patient Profile
+`GET /api/patient/:id`
+* **Expected Output:**
+  ```json
+  {
+    "success": true,
+    "data": { "docType": "patient", "firstName": "Alice", "bloodGroup": "O+", "email": "alice@mail.com" }
+  }
+  ```
+
+### Patient Grants Access
+`POST /api/patient/:id/consents/grant`
+* **Body:**
+  ```json
+  {
+    "hospitalMsp": "HospitalAOrgMSP",
+    "collections": [
+      "collectionMedicalRecords_HospitalA",
+      "collectionLabReports_HospitalA",
+      "collectionPrescriptions_HospitalA",
+      "collectionInsuranceClaims_HospitalA"
+    ]
+  }
+  ```
+* **Expected Output:**
+  ```json
+  {
+    "success": true,
+    "message": "Access granted to HospitalAOrgMSP",
+    "data": { "docType": "consent", "status": "active", "authorizedPDCs": [...] }
+  }
+  ```
+
+### View Audit Logs (Ledger History)
+`GET /api/patient/:id/audit-logs`
+* **Expected Output:**
+  ```json
+  {
+    "success": true,
+    "data": [
+      { "docType": "auditLog", "action": "CREATE_RECORD", "hospitalOrg": "HospitalAOrgMSP", "timestamp": "..." },
+      { "docType": "auditLog", "action": "UPLOAD_LAB_REPORT", "timestamp": "..." }
+    ]
+  }
+  ```
 
 ---
 
-### Phase 5: Pharmacy & Medicine
+## 🏥 2. Hospital Operations (`/api/hospital`)
 
-**9. Doctor Issues Prescription (Hospital Org)**
-```bash
-curl -X POST http://localhost:3000/api/hospital/prescriptions \
--H "Content-Type: application/json" \
--d '{
-  "prescriptionId":"RX001",
-  "patientId":"PAT001",
-  "diagnosis":"Hypertension",
-  "medications":[{"name":"Lisinopril","dosage":"10mg"}],
-  "validUntil":"2026-12-31"
-}'
-```
+### Request Access to Records
+`POST /api/hospital/access/request`
+* **Body:**
+  ```json
+  { "patientId": "PAT001" }
+  ```
+* **Expected Output:**
+  ```json
+  {
+    "success": true,
+    "data": { "docType": "accessRequest", "hospitalOrg": "HospitalAOrgMSP", "status": "pending" }
+  }
+  ```
 
-**10. Pharmacy Views Pending Prescriptions (Pharmacy Org)**
-```bash
-curl http://localhost:3000/api/pharmacy/prescriptions/pending
-```
+### Create Medical Record
+`POST /api/hospital/records`
+* **Body:**
+  ```json
+  {
+    "recordId": "REC001",
+    "patientId": "PAT001",
+    "recordType": "diagnosis",
+    "diagnosis": "Asthma",
+    "treatment": "Inhaler",
+    "documentUrl": "gs://healthchain/..." // Optional (Attach PDF)
+  }
+  ```
+* **Expected Output:**
+  ```json
+  {
+    "success": true,
+    "data": { "docType": "medicalRecord", "recordId": "REC001", "diagnosis": "Asthma", "s3Key": "gs://..." }
+  }
+  ```
 
-**11. Pharmacy Fulfills Prescription (Pharmacy Org)**
-```bash
-curl -X POST http://localhost:3000/api/pharmacy/prescriptions/fulfill \
--H "Content-Type: application/json" \
--d '{"prescriptionId":"RX001"}'
-```
+### View Full Decrypted Medical Profile
+`GET /api/hospital/patients/:id/records`
+* **Expected Output:**
+  ```json
+  {
+    "success": true,
+    "data": [
+      { "docType": "medicalRecord", "recordId": "REC001", "diagnosis": "Asthma" },
+      { "docType": "labReport", "reportId": "REP001", "testType": "Chest X-Ray", "results": {...} }
+    ]
+  }
+  ```
+
+### Order Lab Test
+`POST /api/hospital/lab-orders`
+* **Body:**
+  ```json
+  {
+    "orderId": "ORD427",
+    "patientId": "PAT001",
+    "testName": "Chest X-Ray",
+    "priority": "high"
+  }
+  ```
+* **Expected Output:**
+  ```json
+  {
+    "success": true,
+    "data": { "docType": "labOrder", "orderId": "ORD427", "status": "ordered" }
+  }
+  ```
+
+### Issue Prescription
+`POST /api/hospital/prescriptions`
+* **Body:**
+  ```json
+  {
+    "prescriptionId": "RX001",
+    "patientId": "PAT001",
+    "diagnosis": "Asthma",
+    "medications": [{"name": "Albuterol", "dosage": "2 puffs"}],
+    "validUntil": "2026-12-31",
+    "documentUrl": "gs://..." // Optional (Attach PDF)
+  }
+  ```
+* **Expected Output:**
+  ```json
+  {
+    "success": true,
+    "data": { "docType": "prescription", "status": "issued", "medications": [...] }
+  }
+  ```
+
+### Submit Insurance Claim
+`POST /api/hospital/insurance-claims`
+* **Body:**
+  ```json
+  {
+    "claimId": "CLM001",
+    "patientId": "PAT001",
+    "serviceDate": "2026-03-21",
+    "procedures": [{"code": "12345", "cost": 100}],
+    "totalAmount": 100,
+    "documentUrl": "gs://..." // Optional (Attach PDF)
+  }
+  ```
+* **Expected Output:**
+  ```json
+  {
+    "success": true,
+    "data": { "docType": "insuranceClaim", "status": "submitted", "totalAmount": 100 }
+  }
+  ```
 
 ---
 
-### Phase 6: Billing & Insurance
+## 🔬 3. Diagnostic Lab Operations (`/api/lab`)
 
-**12. Hospital Submits Insurance Claim (Hospital Org)**
-```bash
-curl -X POST http://localhost:3000/api/hospital/insurance-claims \
--H "Content-Type: application/json" \
--d '{
-  "claimId":"CLM001",
-  "patientId":"PAT001",
-  "serviceDate":"2026-02-20",
-  "procedures":[{"code":"99213","cost":150.00}],
-  "totalAmount": 150.00
-}'
-```
-
-**13. Insurance Approves Claim (Insurance Org)**
-```bash
-curl -X POST http://localhost:3000/api/insurance/claims/approve \
--H "Content-Type: application/json" \
--d '{"claimId":"CLM001", "approvedAmount":150.00, "remarks":"Approved in full"}'
-```
+### Upload Lab Report
+`POST /api/lab/reports`
+* **Body:**
+  ```json
+  {
+    "reportId": "REP544",
+    "orderId": "ORD427",
+    "patientId": "PAT001",
+    "testName": "Chest X-Ray",
+    "testResults": { "Lungs": "Clear" },
+    "documentUrl": "gs://..." // Optional (Attach PDF)
+  }
+  ```
+* **Expected Output:**
+  ```json
+  {
+    "success": true,
+    "data": { "docType": "labReport", "status": "completed", "results": {"Lungs": "Clear"} }
+  }
+  ```
 
 ---
 
-### Phase 7: Verification & Audit
+## 💊 4. Pharmacy Operations (`/api/pharmacy`)
 
-**14. View Patient's Total History (Hospital Org or Patient Org)**
-```bash
-curl http://localhost:3000/api/hospital/patients/PAT001/records
-```
+### View Pending Prescriptions
+`GET /api/pharmacy/prescriptions/pending`
+* **Expected Output:**
+  ```json
+  {
+    "success": true,
+    "data": [
+      { "docType": "prescription", "prescriptionId": "RX001", "status": "issued", "medications": [...] }
+    ]
+  }
+  ```
 
-**15. View Immutable Audit Log (Patient Org)**
-See the blockchain trail of exactly who touched Alice's data.
-```bash
-curl http://localhost:3000/api/patient/PAT001/audit-logs
-```
+### Fulfill Prescription
+`POST /api/pharmacy/prescriptions/fulfill`
+* **Body:**
+  ```json
+  { "prescriptionId": "RX001" }
+  ```
+* **Expected Output:**
+  ```json
+  {
+    "success": true,
+    "data": { "docType": "prescription", "prescriptionId": "RX001", "status": "fulfilled" }
+  }
+  ```
+
+---
+
+## 🛡️ 5. Insurance Operations (`/api/insurance`)
+
+### View Pending Claims
+`GET /api/insurance/claims/pending`
+* **Expected Output:**
+  ```json
+  {
+    "success": true,
+    "data": [
+      { "docType": "insuranceClaim", "claimId": "CLM001", "status": "submitted", "totalAmount": 100 }
+    ]
+  }
+  ```
+
+### Approve Claim
+`POST /api/insurance/claims/approve`
+* **Body:**
+  ```json
+  {
+    "claimId": "CLM001",
+    "approvedAmount": 100,
+    "remarks": "Verified"
+  }
+  ```
+* **Expected Output:**
+  ```json
+  {
+    "success": true,
+    "data": { "docType": "insuranceClaim", "claimId": "CLM001", "status": "approved", "approvedAmount": 100 }
+  }
+  ```

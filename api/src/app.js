@@ -9,6 +9,7 @@ const hospitalRoutes = require('./routes/hospitalRoutes');
 const labRoutes = require('./routes/labRoutes');
 const pharmacyRoutes = require('./routes/pharmacyRoutes');
 const insuranceRoutes = require('./routes/insuranceRoutes');
+const uploadRoutes = require('./routes/uploadRoutes');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -23,6 +24,7 @@ app.use('/api/hospital', hospitalRoutes);
 app.use('/api/lab', labRoutes);
 app.use('/api/pharmacy', pharmacyRoutes);
 app.use('/api/insurance', insuranceRoutes);
+app.use('/api/documents', uploadRoutes);
 
 // General health check
 app.get('/', (req, res) => {
@@ -34,7 +36,8 @@ app.get('/', (req, res) => {
             hospital: '/api/hospital',
             lab: '/api/lab',
             pharmacy: '/api/pharmacy',
-            insurance: '/api/insurance'
+            insurance: '/api/insurance',
+            documents: '/api/documents/upload-url'
         }
     });
 });
@@ -52,5 +55,6 @@ app.listen(PORT, () => {
     console.log('  /api/lab         — Lab Organization operations');
     console.log('  /api/pharmacy    — Pharmacy Organization operations');
     console.log('  /api/insurance   — Insurance Organization operations');
+    console.log('  /api/documents   — Secure Document Upload (GCP)');
     console.log('');
 });

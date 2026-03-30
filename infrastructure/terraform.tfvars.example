@@ -1,0 +1,8 @@
+# terraform.tfvars
+# Replace these with your actual local values before running 'terraform apply'
+# DO NOT COMMIT THIS FILE IF IT HAS REAL SECRETS.
+
+project_id  = "healthchain-platform-12345"
+region      = "us-central1"
+zone        = "us-central1-a"
+bucket_name = "healthchain-secure-docs-xyz789"

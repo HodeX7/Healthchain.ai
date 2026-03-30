@@ -32,18 +32,32 @@ class HealthchainContract extends Contract {
   }
 
   // Update network metadata (e.g., to add new hospitals)
+  // RESTRICTED: Only orderer org admin can modify this
   async updateNetworkMetadata(ctx, hospitalsJSON) {
     console.info('============= START : Update Network Metadata ===========');
     
+    // Access control: only allow specific admin MSPs
+    const callerMSP = ctx.clientIdentity.getMSPID();
+    const allowedMSPs = ['OrdererMSP', 'PatientOrgMSP'];
+    if (!allowedMSPs.includes(callerMSP)) {
+      throw new Error(`Unauthorized: Only network admins can update metadata. Caller MSP: ${callerMSP}`);
+    }
+    
     // Parse new hospital list
     const hospitals = JSON.parse(hospitalsJSON);
+    
+    // Validate input
+    if (!Array.isArray(hospitals) || hospitals.length === 0) {
+      throw new Error('Invalid hospitals list: must be a non-empty array');
+    }
     
     // Create updated metadata
     const networkMetadata = {
       docType: 'networkMetadata',
       version: '1.0.0', 
       hospitals: hospitals,
-      updatedAt: getTimestamp(ctx)
+      updatedAt: getTimestamp(ctx),
+      updatedBy: ctx.clientIdentity.getID()
     };
     
     // Overwrite existing state
