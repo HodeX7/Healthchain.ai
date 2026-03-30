@@ -1,21 +1,57 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Card, CardHeader, CardTitle, CardContent } from '../components/ui/Card';
 import { Table, TableHeader, TableHead, TableBody, TableRow, TableCell } from '../components/ui/Table';
 import { Button } from '../components/ui/Button';
-import { Modal } from '../components/ui/Modal';
 import { Pill, Check, Clock } from 'lucide-react';
+import { PharmacyService, DocumentService } from '../services/api';
 
 export default function PharmacyDashboard() {
-  const [prescriptions, setPrescriptions] = useState([
-    { id: 'RX-7721', patient: 'patient_alice', drug: 'Amoxicillin 500mg', instructions: '1 tablet twice a day', status: 'pending', date: '2023-11-21T08:15:00Z', hospital: 'HospitalA' }
-  ]);
+  const [prescriptions, setPrescriptions] = useState([]);
   const [selectedRx, setSelectedRx] = useState(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [pharmacistNotes, setPharmacistNotes] = useState('');
 
-  const handleFulfill = (e) => {
+  const fetchPrescriptions = async () => {
+    setIsLoading(true);
+    try {
+      const res = await PharmacyService.getPendingPrescriptions();
+      setPrescriptions(Array.isArray(res.data) ? res.data : []);
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchPrescriptions();
+  }, []);
+
+  const fetchDocumentLink = async (url) => {
+    try {
+      const res = await DocumentService.getDownloadUrl({ documentUrl: url });
+      if (res.success) {
+        window.open(res.downloadUrl, '_blank');
+      }
+    } catch (err) {
+      alert("Failed to fetch download link for document.");
+      console.error(err);
+    }
+  };
+
+  const handleFulfill = async (e) => {
     e.preventDefault();
-    const updated = prescriptions.map(p => p.id === selectedRx.id ? { ...p, status: 'fulfilled' } : p);
-    setPrescriptions(updated);
-    setSelectedRx(null);
+    try {
+      await PharmacyService.fulfillPrescription({
+        prescriptionId: selectedRx.prescriptionId || selectedRx.id,
+        pharmacistNotes
+      });
+      setSelectedRx(null);
+      setPharmacistNotes('');
+      await fetchPrescriptions();
+    } catch (err) {
+      alert("Failed to fulfill prescription: " + (err.response?.data?.error || err.message));
+    }
   };
 
   return (
@@ -42,25 +78,43 @@ export default function PharmacyDashboard() {
                 <TableHead>Action</TableHead>
               </TableHeader>
               <TableBody>
-                {prescriptions.map((rx) => (
-                  <TableRow key={rx.id}>
-                    <TableCell className="font-mono text-sm font-medium text-slate-700">{rx.id}</TableCell>
-                    <TableCell className="text-slate-500">{rx.patient}</TableCell>
+                {isLoading ? (
+                  <TableRow>
+                     <TableCell colSpan={6} className="text-center py-6 text-slate-500">Loading prescriptions from ledger...</TableCell>
+                  </TableRow>
+                ) : prescriptions.length === 0 ? (
+                  <TableRow>
+                     <TableCell colSpan={6} className="text-center py-6 text-slate-500">No pending prescriptions found.</TableCell>
+                  </TableRow>
+                ) : prescriptions.map((rx) => {
+                  const rxData = rx.Record || rx;
+                  const meds = Array.isArray(rxData.medications) ? rxData.medications[0] : rxData.medications;
+                  const drugName = rxData.drug || (meds?.name);
+                  const instructions = rxData.instructions || (meds?.instructions);
+                  return (
+                  <TableRow key={rxData.prescriptionId || rx.Key}>
+                    <TableCell className="font-mono text-sm font-medium text-slate-700">{rxData.prescriptionId || rx.Key}</TableCell>
+                    <TableCell className="text-slate-500">{rxData.patientId || rxData.patient}</TableCell>
                     <TableCell className="font-medium text-slate-900">
-                       {rx.drug}
-                       <div className="text-xs text-slate-500 truncate w-48">{rx.instructions}</div>
+                       {drugName}
+                       <div className="text-xs text-slate-500 truncate w-48">{instructions}</div>
+                       {(rxData.documentUrl || rxData.s3Key) && (
+                         <button onClick={() => fetchDocumentLink(rxData.documentUrl || rxData.s3Key)} className="mt-1 text-xs bg-green-100 hover:bg-green-200 text-green-700 font-medium px-2 py-0.5 rounded inline-flex items-center">
+                           📄 View PDF
+                         </button>
+                       )}
                     </TableCell>
-                    <TableCell className="text-slate-500">{rx.hospital}</TableCell>
+                    <TableCell className="text-slate-500">{rxData.hospitalId || rxData.hospitalOrg || rxData.hospital}</TableCell>
                     <TableCell>
-                      {rx.status === 'pending' ? (
+                      {rxData.status === 'pending' || rxData.status === 'issued' ? (
                          <span className="px-2 py-1 bg-amber-100 text-amber-700 rounded-full text-xs font-semibold flex items-center w-[85px] justify-center"><Clock className="w-3 h-3 mr-1"/> Pending</span>
                       ) : (
                          <span className="px-2 py-1 bg-green-100 text-green-700 rounded-full text-xs font-semibold flex items-center w-[85px] justify-center"><Check className="w-3 h-3 mr-1"/> Fulfilled</span>
                       )}
                     </TableCell>
                     <TableCell>
-                      {rx.status === 'pending' ? (
-                        <Button size="sm" className="bg-green-600 hover:bg-green-700" onClick={() => setSelectedRx(rx)}>
+                      {rxData.status === 'pending' || rxData.status === 'issued' ? (
+                        <Button size="sm" className="bg-green-600 hover:bg-green-700" onClick={() => setSelectedRx(rxData)}>
                           Dispense Meds
                         </Button>
                       ) : (
@@ -68,7 +122,7 @@ export default function PharmacyDashboard() {
                       )}
                     </TableCell>
                   </TableRow>
-                ))}
+                )})}
               </TableBody>
             </Table>
         </CardContent>

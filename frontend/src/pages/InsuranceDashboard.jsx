@@ -1,18 +1,49 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Card, CardHeader, CardTitle, CardContent, CardFooter } from '../components/ui/Card';
 import { Table, TableHeader, TableHead, TableBody, TableRow, TableCell } from '../components/ui/Table';
-import { Button } from '../components/ui/Button';
 import { ShieldAlert, FileSearch, CheckCircle2, XCircle } from 'lucide-react';
+import { InsuranceService, DocumentService } from '../services/api';
 
 export default function InsuranceDashboard() {
-  const [claims, setClaims] = useState([
-    { id: 'CLM-00912', patient: 'patient_bob', hospital: 'HospitalA', service: 'Emergency Room Visit', amount: '$1,250.00', status: 'pending', date: '2023-11-20' },
-    { id: 'CLM-00913', patient: 'patient_alice', hospital: 'HospitalB', service: 'MRI Scan', amount: '$3,400.00', status: 'pending', date: '2023-11-22' }
-  ]);
+  const [claims, setClaims] = useState([]);
+  const [isLoading, setIsLoading] = useState(true);
 
-  const handleProcessClaim = (id, newStatus) => {
-    const updated = claims.map(c => c.id === id ? { ...c, status: newStatus } : c);
-    setClaims(updated);
+  const fetchClaims = async () => {
+    setIsLoading(true);
+    try {
+      const res = await InsuranceService.getPendingClaims();
+      setClaims(Array.isArray(res.data) ? res.data : []);
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchClaims();
+  }, []);
+
+  const fetchDocumentLink = async (url) => {
+    try {
+      const res = await DocumentService.getDownloadUrl({ documentUrl: url });
+      if (res.success) {
+        window.open(res.downloadUrl, '_blank');
+      }
+    } catch (err) {
+      alert("Failed to fetch download link for document.");
+      console.error(err);
+    }
+  };
+
+  const handleProcessClaim = async (id, newStatus) => {
+    if (newStatus !== 'approved') return; // backend API only supports claims/approve currently.
+    try {
+      await InsuranceService.approveClaim({ claimId: id, details: "Automated standard approval process." });
+      await fetchClaims();
+    } catch (err) {
+      alert("Failed to process claim: " + (err.response?.data?.error || err.message));
+    }
   };
 
   return (
@@ -40,32 +71,47 @@ export default function InsuranceDashboard() {
                     <TableHead className="text-right">Decision</TableHead>
                   </TableHeader>
                   <TableBody>
-                    {claims.map((claim) => (
-                      <TableRow key={claim.id}>
+                    {isLoading ? (
+                      <TableRow>
+                         <TableCell colSpan={5} className="text-center py-6 text-slate-500">Loading claims from ledger...</TableCell>
+                      </TableRow>
+                    ) : claims.length === 0 ? (
+                      <TableRow>
+                         <TableCell colSpan={5} className="text-center py-6 text-slate-500">No pending claims found.</TableCell>
+                      </TableRow>
+                    ) : claims.map((claim) => {
+                      const cData = claim.Record || claim;
+                      const serviceDesc = Array.isArray(cData.procedures) ? cData.procedures[0]?.description : (cData.service || 'Medical Service');
+                      const claimDate = cData.timestamp ? new Date(cData.timestamp).toLocaleDateString() : cData.date;
+                      return (
+                      <TableRow key={cData.claimId || claim.Key}>
                         <TableCell>
-                          <div className="font-mono text-sm font-bold text-slate-700">{claim.id}</div>
-                          <div className="text-xs text-slate-500">{claim.date}</div>
+                          <div className="font-mono text-sm font-bold text-slate-700">{cData.claimId || claim.Key}</div>
+                          <div className="text-xs text-slate-500">{claimDate}</div>
                         </TableCell>
                         <TableCell>
-                          <div className="font-medium text-slate-900">{claim.patient}</div>
-                          <div className="text-xs text-slate-500">{claim.hospital}</div>
+                          <div className="font-medium text-slate-900">{cData.patientId || cData.patient}</div>
+                          <div className="text-xs text-slate-500">{cData.hospitalId || cData.hospitalOrg || cData.hospital}</div>
                         </TableCell>
                         <TableCell>
-                          <div className="font-medium text-slate-900">{claim.service}</div>
-                          <div className="text-sm font-semibold text-emerald-600">{claim.amount}</div>
+                          <div className="font-medium text-slate-900">{serviceDesc}</div>
+                          <div className="text-sm font-semibold text-emerald-600">${cData.totalAmount || cData.amount}</div>
+                          {(cData.documentUrl || cData.s3Key) && (
+                            <button onClick={() => fetchDocumentLink(cData.documentUrl || cData.s3Key)} className="mt-1 text-xs bg-amber-100 hover:bg-amber-200 text-amber-700 font-medium px-2 py-0.5 rounded inline-flex items-center">
+                              📄 View Receipt
+                            </button>
+                          )}
                         </TableCell>
                         <TableCell>
-                          {claim.status === 'pending' && <span className="px-2 py-1 bg-amber-100 text-amber-700 rounded-full text-xs font-semibold">Under Review</span>}
-                          {claim.status === 'approved' && <span className="px-2 py-1 bg-green-100 text-green-700 rounded-full text-xs font-semibold">Approved</span>}
-                          {claim.status === 'rejected' && <span className="px-2 py-1 bg-red-100 text-red-700 rounded-full text-xs font-semibold">Rejected</span>}
+                          {cData.status === 'pending' || cData.status === 'submitted' ? <span className="px-2 py-1 bg-amber-100 text-amber-700 rounded-full text-xs font-semibold">Under Review</span> : cData.status === 'approved' ? <span className="px-2 py-1 bg-green-100 text-green-700 rounded-full text-xs font-semibold">Approved</span> : <span className="px-2 py-1 bg-red-100 text-red-700 rounded-full text-xs font-semibold">Rejected</span>}
                         </TableCell>
                         <TableCell className="text-right">
-                          {claim.status === 'pending' ? (
+                          {cData.status === 'pending' || cData.status === 'submitted' ? (
                             <div className="flex justify-end space-x-2">
-                              <Button size="sm" className="bg-green-600 hover:bg-green-700 px-2" onClick={() => handleProcessClaim(claim.id, 'approved')} title="Approve">
+                              <Button size="sm" className="bg-green-600 hover:bg-green-700 px-2" onClick={() => handleProcessClaim(cData.claimId || claim.Key, 'approved')} title="Approve">
                                 <CheckCircle2 className="w-4 h-4" />
                               </Button>
-                              <Button size="sm" variant="danger" className="px-2" onClick={() => handleProcessClaim(claim.id, 'rejected')} title="Reject">
+                              <Button size="sm" variant="danger" className="px-2" onClick={() => handleProcessClaim(cData.claimId || claim.Key, 'rejected')} title="Reject">
                                 <XCircle className="w-4 h-4" />
                               </Button>
                             </div>
@@ -74,7 +120,7 @@ export default function InsuranceDashboard() {
                           )}
                         </TableCell>
                       </TableRow>
-                    ))}
+                    )})}
                   </TableBody>
                 </Table>
             </CardContent>

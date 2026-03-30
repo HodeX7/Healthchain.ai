@@ -4,7 +4,7 @@ import { Table, TableHeader, TableHead, TableBody, TableRow, TableCell } from '.
 import { Button } from '../components/ui/Button';
 import { Modal } from '../components/ui/Modal';
 import { Shield, FileText, Activity, Key, Lock } from 'lucide-react';
-import { PatientService } from '../services/api';
+import { PatientService, DocumentService } from '../services/api';
 
 export default function PatientDashboard() {
   const [profile, setProfile] = useState(null);
@@ -17,6 +17,18 @@ export default function PatientDashboard() {
   const [error, setError] = useState(null);
 
   const patientId = localStorage.getItem('hc_patient_id');
+
+  const fetchDocumentLink = async (url) => {
+    try {
+      const res = await DocumentService.getDownloadUrl({ documentUrl: url });
+      if (res.success) {
+        window.open(res.downloadUrl, '_blank');
+      }
+    } catch (err) {
+      alert("Failed to fetch download link for document.");
+      console.error(err);
+    }
+  };
 
   useEffect(() => {
     if (!patientId) return;
@@ -55,7 +67,18 @@ export default function PatientDashboard() {
     e.preventDefault();
     setIsLoading(true);
     try {
-      await PatientService.grantConsent(patientId, hospitalIdInput);
+      let baseName = hospitalIdInput.replace('OrgMSP', '');
+      baseName = baseName.charAt(0).toUpperCase() + baseName.slice(1);
+      const mspId = `${baseName}OrgMSP`;
+      
+      const collections = [
+         `collectionMedicalRecords_${baseName}`,
+         `collectionLabReports_${baseName}`,
+         `collectionPrescriptions_${baseName}`,
+         `collectionInsuranceClaims_${baseName}`
+      ];
+
+      await PatientService.grantConsent(patientId, mspId, collections);
       const logsRes = await PatientService.getAuditLogs(patientId);
       setAuditLogs(Array.isArray(logsRes.data) ? logsRes.data : []);
       setConsentModalOpen(false);
@@ -74,7 +97,11 @@ export default function PatientDashboard() {
     e.preventDefault();
     setIsLoading(true);
     try {
-      await PatientService.revokeConsent(patientId, hospitalIdInput);
+      let baseName = hospitalIdInput.replace('OrgMSP', '');
+      baseName = baseName.charAt(0).toUpperCase() + baseName.slice(1);
+      const mspId = `${baseName}OrgMSP`;
+
+      await PatientService.revokeConsent(patientId, mspId);
       const logsRes = await PatientService.getAuditLogs(patientId);
       setAuditLogs(Array.isArray(logsRes.data) ? logsRes.data : []);
       setRevokeModalOpen(false);
@@ -152,7 +179,16 @@ export default function PatientDashboard() {
                       <TableRow key={i}>
                         <TableCell className="text-slate-500">{recData.date ? new Date(recData.date).toLocaleDateString() : 'N/A'}</TableCell>
                         <TableCell className="font-medium text-slate-900">{recData.hospitalId ? recData.hospitalId.replace('OrgMSP', '') : 'N/A'}</TableCell>
-                        <TableCell>{recData.diagnosis || recData.description || 'Record entry'}</TableCell>
+                        <TableCell>
+                          {recData.diagnosis || recData.description || 'Record entry'}
+                          {(recData.documentUrl || recData.s3Key) && (
+                            <div className="mt-2">
+                              <button onClick={() => fetchDocumentLink(recData.documentUrl || recData.s3Key)} className="text-xs bg-blue-100 hover:bg-blue-200 text-blue-700 font-medium px-2 py-1 rounded inline-flex items-center">
+                                📄 View Attachment
+                              </button>
+                            </div>
+                          )}
+                        </TableCell>
                         <TableCell className="text-slate-500">{recData.doctor || 'Unknown'}</TableCell>
                       </TableRow>
                     )})}

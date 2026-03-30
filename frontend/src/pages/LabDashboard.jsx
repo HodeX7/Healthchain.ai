@@ -1,22 +1,62 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Card, CardHeader, CardTitle, CardContent } from '../components/ui/Card';
 import { Table, TableHeader, TableHead, TableBody, TableRow, TableCell } from '../components/ui/Table';
 import { Button } from '../components/ui/Button';
 import { Modal } from '../components/ui/Modal';
 import { FlaskConical, UploadCloud, CheckCircle2, Clock } from 'lucide-react';
+import { LabService, DocumentService } from '../services/api';
 
 export default function LabDashboard() {
-  const [orders, setOrders] = useState([
-    { id: 'ORD-1029', patient: 'patient_alice', test: 'Complete Blood Count', status: 'pending', date: '2023-11-20T09:00:00Z', orderedBy: 'HospitalA' },
-    { id: 'ORD-1030', patient: 'patient_bob', test: 'Lipid Panel', status: 'completed', date: '2023-11-19T14:30:00Z', orderedBy: 'HospitalB' }
-  ]);
+  const [orders, setOrders] = useState([]);
+  const [isLoading, setIsLoading] = useState(true);
   const [selectedOrder, setSelectedOrder] = useState(null);
 
-  const handleUpload = (e) => {
+  const fetchOrders = async () => {
+    setIsLoading(true);
+    try {
+      const res = await LabService.getOrders();
+      setOrders(Array.isArray(res.data) ? res.data : []);
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchOrders();
+  }, []);
+  const [file, setFile] = useState(null);
+  const [notes, setNotes] = useState('');
+  const [isUploading, setIsUploading] = useState(false);
+
+  const handleUpload = async (e) => {
     e.preventDefault();
-    const updated = orders.map(o => o.id === selectedOrder.id ? { ...o, status: 'completed' } : o);
-    setOrders(updated);
-    setSelectedOrder(null);
+    setIsUploading(true);
+    try {
+      let documentUrl = null;
+      if (file) {
+          documentUrl = await DocumentService.uploadFileToGCS(file);
+      }
+      
+      await LabService.uploadReport({
+          reportId: `REP${Math.floor(Math.random()*1000)}`,
+          orderId: selectedOrder.orderId || selectedOrder.id,
+          patientId: selectedOrder.patientId || selectedOrder.patient,
+          testName: selectedOrder.testName || selectedOrder.test,
+          testResults: { notes },
+          documentUrl
+      });
+      
+      setSelectedOrder(null);
+      setFile(null);
+      setNotes('');
+      await fetchOrders();
+    } catch (err) {
+      alert("Failed to upload report: " + (err.response?.data?.error || err.message));
+    } finally {
+      setIsUploading(false);
+    }
   };
 
   return (
@@ -29,8 +69,8 @@ export default function LabDashboard() {
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-6">
-        <StatCard title="Pending Orders" val={orders.filter(o=>o.status==='pending').length} icon={Clock} color="text-amber-500" bg="bg-amber-50"/>
-        <StatCard title="Completed Today" val={orders.filter(o=>o.status==='completed').length} icon={CheckCircle2} color="text-green-500" bg="bg-green-50"/>
+        <StatCard title="Pending Orders" val={orders.filter(o=>{ const d = o.Record || o; return d.status === 'pending' || d.status === 'ordered'; }).length} icon={Clock} color="text-amber-500" bg="bg-amber-50"/>
+        <StatCard title="Completed Today" val={orders.filter(o=>{ const d = o.Record || o; return d.status === 'completed'; }).length} icon={CheckCircle2} color="text-green-500" bg="bg-green-50"/>
       </div>
 
       <Card>
@@ -48,22 +88,32 @@ export default function LabDashboard() {
                 <TableHead>Action</TableHead>
               </TableHeader>
               <TableBody>
-                {orders.map((o) => (
-                  <TableRow key={o.id}>
-                    <TableCell className="font-mono text-sm font-medium text-slate-700">{o.id}</TableCell>
-                    <TableCell className="text-slate-500">{o.patient}</TableCell>
-                    <TableCell className="font-medium">{o.test}</TableCell>
-                    <TableCell className="text-slate-500">{o.orderedBy}</TableCell>
+                {isLoading ? (
+                  <TableRow>
+                     <TableCell colSpan={6} className="text-center py-6 text-slate-500">Loading orders from ledger...</TableCell>
+                  </TableRow>
+                ) : orders.length === 0 ? (
+                  <TableRow>
+                     <TableCell colSpan={6} className="text-center py-6 text-slate-500">No lab orders found.</TableCell>
+                  </TableRow>
+                ) : orders.map((o) => {
+                  const oData = o.Record || o;
+                  return (
+                  <TableRow key={oData.orderId || o.Key}>
+                    <TableCell className="font-mono text-sm font-medium text-slate-700">{oData.orderId || o.Key}</TableCell>
+                    <TableCell className="text-slate-500">{oData.patientId || oData.patient}</TableCell>
+                    <TableCell className="font-medium">{oData.testName || oData.test}</TableCell>
+                    <TableCell className="text-slate-500">{oData.hospitalOrg || oData.hospitalMsp || oData.orderedBy || 'N/A'}</TableCell>
                     <TableCell>
-                      {o.status === 'pending' ? (
+                      {oData.status === 'pending' || oData.status === 'ordered' ? (
                         <span className="px-2 py-1 bg-amber-100 text-amber-700 rounded-full text-xs font-semibold flex items-center w-20 justify-center">Pending</span>
                       ) : (
                         <span className="px-2 py-1 bg-green-100 text-green-700 rounded-full text-xs font-semibold flex items-center w-20 justify-center">Completed</span>
                       )}
                     </TableCell>
                     <TableCell>
-                      {o.status === 'pending' ? (
-                        <Button size="sm" variant="secondary" onClick={() => setSelectedOrder(o)}>
+                      {oData.status === 'pending' || oData.status === 'ordered' ? (
+                        <Button size="sm" variant="secondary" onClick={() => setSelectedOrder(oData)}>
                           Upload Results
                         </Button>
                       ) : (
@@ -71,7 +121,7 @@ export default function LabDashboard() {
                       )}
                     </TableCell>
                   </TableRow>
-                ))}
+                )})}
               </TableBody>
             </Table>
         </CardContent>
@@ -81,22 +131,22 @@ export default function LabDashboard() {
         {selectedOrder && (
           <form onSubmit={handleUpload} className="space-y-4">
              <div className="bg-slate-50 p-4 rounded-lg border border-slate-200 mb-4">
-                <p className="text-sm font-medium"><span className="text-slate-500">Test:</span> {selectedOrder.test}</p>
-                <p className="text-sm font-medium"><span className="text-slate-500">Order ID:</span> {selectedOrder.id}</p>
+                <p className="text-sm font-medium"><span className="text-slate-500">Test:</span> {selectedOrder.testName || selectedOrder.test}</p>
+                <p className="text-sm font-medium"><span className="text-slate-500">Order ID:</span> {selectedOrder.orderId || selectedOrder.id}</p>
              </div>
              <div>
                 <label className="block text-sm font-medium text-slate-700 mb-1">Result Notes</label>
-                <textarea className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-purple-500" rows="3" placeholder="Enter findings..."></textarea>
+                <textarea value={notes} onChange={e => setNotes(e.target.value)} className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-purple-500" rows="3" placeholder="Enter findings..."></textarea>
              </div>
-             <div className="border border-dashed border-slate-300 rounded-xl p-8 text-center bg-slate-50 hover:bg-slate-100 transition-colors cursor-pointer">
-                <UploadCloud className="w-8 h-8 text-purple-400 mx-auto mb-2" />
-                <p className="text-sm text-slate-600 font-medium">Click to select PDF report file</p>
-                <p className="text-xs text-slate-400 mt-1">File hash will be stored on-chain</p>
+             
+             <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">Attach Final Report (PDF)</label>
+                <input type="file" accept="application/pdf" onChange={e => setFile(e.target.files[0])} className="w-full text-sm text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-purple-50 file:text-purple-700 hover:file:bg-purple-100" />
              </div>
              
              <div className="pt-4 flex justify-end space-x-2">
                <Button type="button" variant="ghost" onClick={() => setSelectedOrder(null)}>Cancel</Button>
-               <Button type="submit" className="bg-purple-600 hover:bg-purple-700 focus:ring-purple-500">Submit Results</Button>
+               <Button type="submit" className="bg-purple-600 hover:bg-purple-700 focus:ring-purple-500" disabled={isUploading}>{isUploading ? 'Uploading...' : 'Submit Results'}</Button>
              </div>
           </form>
         )}

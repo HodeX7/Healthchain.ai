@@ -3,7 +3,7 @@ import { Card, CardHeader, CardTitle, CardContent } from '../components/ui/Card'
 import { Button } from '../components/ui/Button';
 import { Modal } from '../components/ui/Modal';
 import { Search, Plus, FileText, FlaskConical, Pill, ShieldAlert, ShieldCheck, Key } from 'lucide-react';
-import { HospitalService } from '../services/api';
+import { HospitalService, DocumentService } from '../services/api';
 
 export default function HospitalDashboard() {
   const [patientIdInput, setPatientIdInput] = useState('');
@@ -17,6 +17,8 @@ export default function HospitalDashboard() {
   const [activeModal, setActiveModal] = useState(null); // 'note', 'lab', 'prescription', 'claim'
   const [modalLoading, setModalLoading] = useState(false);
   const [formData, setFormData] = useState({});
+  const [selectedDocs, setSelectedDocs] = useState({}); // To hold fetched download links
+
 
   const fetchPatientRecords = async (idToFetch) => {
     setIsLoading(true);
@@ -75,7 +77,13 @@ export default function HospitalDashboard() {
     e.preventDefault();
     setModalLoading(true);
     try {
+      let documentUrl = null;
+      if (formData.file) {
+        documentUrl = await DocumentService.uploadFileToGCS(formData.file);
+      }
+
       const dataPayload = { patientId: activePatientId, ...formData };
+      if (documentUrl) dataPayload.documentUrl = documentUrl;
       
       switch(activeModal) {
           case 'note':
@@ -85,9 +93,15 @@ export default function HospitalDashboard() {
               await HospitalService.orderLabTest(dataPayload);
               break;
           case 'prescription':
+              // Medications assumed to be formatted string or JSON list depending on frontend form:
+              dataPayload.medications = [{ name: formData.medication, dosage: formData.dosage }];
               await HospitalService.issuePrescription(dataPayload);
               break;
           case 'claim':
+              dataPayload.procedures = [{ code: formData.serviceDetails, cost: formData.amount }];
+              dataPayload.claimId = `CLM${Math.floor(Math.random() * 1000)}`;
+              dataPayload.serviceDate = new Date().toISOString().split('T')[0];
+              dataPayload.totalAmount = formData.amount;
               await HospitalService.submitClaim(dataPayload);
               break;
       }
@@ -106,6 +120,23 @@ export default function HospitalDashboard() {
   const handleFormChange = (e) => {
       setFormData({...formData, [e.target.name]: e.target.value});
   };
+
+  const handleFileChange = (e) => {
+      setFormData({...formData, file: e.target.files[0]});
+  };
+
+  const fetchDocumentLink = async (url) => {
+    try {
+      const res = await DocumentService.getDownloadUrl({ documentUrl: url });
+      if (res.success) {
+        window.open(res.downloadUrl, '_blank');
+      }
+    } catch (err) {
+      alert("Failed to fetch download link for document.");
+      console.error(err);
+    }
+  };
+
 
   return (
     <div className="space-y-6">
@@ -195,6 +226,11 @@ export default function HospitalDashboard() {
                               </span>
                               <span className="font-medium text-slate-800 break-words block">{rec.diagnosis || rec.description || rec.testType || rec.medication || 'Data Entry'}</span>
                               <span className="text-xs text-slate-400 mt-2 block break-all">ID: {rec.recordId || rec.orderId || rec.prescriptionId || rec.claimId || r.Key || 'N/A'}</span>
+                              {(rec.documentUrl || rec.s3Key) && (
+                                <button type="button" onClick={() => fetchDocumentLink(rec.documentUrl || rec.s3Key)} className="mt-2 text-xs bg-blue-100 hover:bg-blue-200 text-blue-700 font-medium px-2 py-1 rounded inline-flex items-center">
+                                  📄 View Attachment
+                                </button>
+                              )}
                           </div>
                       )})}
                       {patientData.records.length === 0 && (
@@ -248,6 +284,10 @@ export default function HospitalDashboard() {
                           <label className="block text-sm font-medium text-slate-700 mb-1">Treatment / Recommendations</label>
                           <textarea required name="treatment" value={formData.treatment || ''} onChange={handleFormChange} rows={3} className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="Prescribed rest and medication..." />
                       </div>
+                      <div>
+                          <label className="block text-sm font-medium text-slate-700 mb-1">Attach PDF (Optional)</label>
+                          <input type="file" accept="application/pdf" name="file" onChange={handleFileChange} className="w-full text-sm text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100" />
+                      </div>
                   </>
               )}
 
@@ -288,6 +328,10 @@ export default function HospitalDashboard() {
                           <label className="block text-sm font-medium text-slate-700 mb-1">Dosage / Instructions</label>
                           <input required name="dosage" value={formData.dosage || ''} onChange={handleFormChange} className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="e.g. 1 pill twice a day for 7 days" />
                       </div>
+                      <div>
+                          <label className="block text-sm font-medium text-slate-700 mb-1">Attach PDF (Optional)</label>
+                          <input type="file" accept="application/pdf" name="file" onChange={handleFileChange} className="w-full text-sm text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100" />
+                      </div>
                   </>
               )}
 
@@ -307,6 +351,10 @@ export default function HospitalDashboard() {
                       <div>
                           <label className="block text-sm font-medium text-slate-700 mb-1">Claim Amount ($)</label>
                           <input required type="number" name="amount" value={formData.amount || ''} onChange={handleFormChange} className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="e.g. 1500" />
+                      </div>
+                      <div>
+                          <label className="block text-sm font-medium text-slate-700 mb-1">Attach Invoice/Receipt (Optional PDF)</label>
+                          <input type="file" accept="application/pdf" name="file" onChange={handleFileChange} className="w-full text-sm text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100" />
                       </div>
                   </>
               )}

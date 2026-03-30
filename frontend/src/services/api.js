@@ -22,7 +22,7 @@ api.interceptors.request.use((config) => {
 export const PatientService = {
   register: (data) => api.post('/patient/register', data).then(res => res.data),
   getProfile: (id) => api.get(`/patient/${id}`).then(res => res.data),
-  grantConsent: (id, hospitalId) => api.post(`/patient/${id}/consents/grant`, { hospitalMsp: hospitalId, collections: [`collectionMedicalRecords_${hospitalId.replace('OrgMSP', '')}`] }).then(res => res.data),
+  grantConsent: (id, hospitalId, collections) => api.post(`/patient/${id}/consents/grant`, { hospitalMsp: hospitalId, collections }).then(res => res.data),
   revokeConsent: (id, hospitalId) => api.post(`/patient/${id}/consents/revoke`, { hospitalMsp: hospitalId }).then(res => res.data),
   getRecords: (id) => api.get(`/patient/${id}/records`).then(res => res.data),
   getAuditLogs: (id) => api.get(`/patient/${id}/audit-logs`).then(res => res.data),
@@ -50,4 +50,25 @@ export const PharmacyService = {
 export const InsuranceService = {
   getPendingClaims: () => api.get('/insurance/claims/pending').then(res => res.data),
   approveClaim: (data) => api.post('/insurance/claims/approve', data).then(res => res.data),
+};
+
+export const DocumentService = {
+  getUploadUrl: (data) => api.post('/documents/upload-url', data).then(res => res.data),
+  getDownloadUrl: (data) => api.post('/documents/download-url', data).then(res => res.data),
+  uploadFileToGCS: async (file) => {
+    // 1. Get signed URL
+    const signData = await DocumentService.getUploadUrl({ fileName: file.name, contentType: file.type });
+    if (!signData.success) throw new Error("Failed to get upload URL: " + signData.error);
+    
+    // 2. Put file directly to GCS
+    const uploadRes = await fetch(signData.uploadUrl, {
+      method: 'PUT',
+      headers: { 'Content-Type': file.type },
+      body: file
+    });
+    
+    if (!uploadRes.ok) throw new Error("Failed to upload file to GCS");
+    
+    return signData.documentUrl;
+  }
 };
