@@ -61,6 +61,7 @@ export default function HospitalDashboard() {
           hospitalMsp: formattedMsp,
           reason: "Medical consultation"
       });
+      
       setRequestStatus('Request Sent! Waiting for Patient to grant access.');
     } catch (error) {
       const backendMsg = error.response?.data?.error || error.message;
