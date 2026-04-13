@@ -4,6 +4,8 @@ import { Button } from '../components/ui/Button';
 import { Modal } from '../components/ui/Modal';
 import { Search, Plus, FileText, FlaskConical, Pill, ShieldAlert, ShieldCheck, Key } from 'lucide-react';
 import { HospitalService, DocumentService } from '../services/api';
+import { DocumentUploader } from '../components/ui/DocumentUploader';
+import { DocumentViewer } from '../components/ui/DocumentViewer';
 
 export default function HospitalDashboard() {
   const [patientIdInput, setPatientIdInput] = useState('');
@@ -77,22 +79,19 @@ export default function HospitalDashboard() {
     e.preventDefault();
     setModalLoading(true);
     try {
-      let documentUrl = null;
-      if (formData.file) {
-        documentUrl = await DocumentService.uploadFileToGCS(formData.file);
-      }
-
       const dataPayload = { patientId: activePatientId, ...formData };
-      if (documentUrl) dataPayload.documentUrl = documentUrl;
       
       switch(activeModal) {
           case 'note':
+              dataPayload.recordId = `REC${Math.floor(Math.random() * 1000)}`;
               await HospitalService.createRecord(dataPayload);
               break;
           case 'lab':
+              dataPayload.orderId = `ORD${Math.floor(Math.random() * 1000)}`;
               await HospitalService.orderLabTest(dataPayload);
               break;
           case 'prescription':
+              dataPayload.prescriptionId = `RX${Math.floor(Math.random() * 1000)}`;
               // Medications assumed to be formatted string or JSON list depending on frontend form:
               dataPayload.medications = [{ name: formData.medication, dosage: formData.dosage }];
               await HospitalService.issuePrescription(dataPayload);
@@ -121,20 +120,8 @@ export default function HospitalDashboard() {
       setFormData({...formData, [e.target.name]: e.target.value});
   };
 
-  const handleFileChange = (e) => {
-      setFormData({...formData, file: e.target.files[0]});
-  };
-
-  const fetchDocumentLink = async (url) => {
-    try {
-      const res = await DocumentService.getDownloadUrl({ documentUrl: url });
-      if (res.success) {
-        window.open(res.downloadUrl, '_blank');
-      }
-    } catch (err) {
-      alert("Failed to fetch download link for document.");
-      console.error(err);
-    }
+  const handleDocumentAttach = (url) => {
+      setFormData({...formData, documentUrl: url});
   };
 
 
@@ -227,9 +214,7 @@ export default function HospitalDashboard() {
                               <span className="font-medium text-slate-800 break-words block">{rec.diagnosis || rec.description || rec.testType || rec.medication || 'Data Entry'}</span>
                               <span className="text-xs text-slate-400 mt-2 block break-all">ID: {rec.recordId || rec.orderId || rec.prescriptionId || rec.claimId || r.Key || 'N/A'}</span>
                               {(rec.documentUrl || rec.s3Key) && (
-                                <button type="button" onClick={() => fetchDocumentLink(rec.documentUrl || rec.s3Key)} className="mt-2 text-xs bg-blue-100 hover:bg-blue-200 text-blue-700 font-medium px-2 py-1 rounded inline-flex items-center">
-                                  📄 View Attachment
-                                </button>
+                                <DocumentViewer documentUrl={rec.documentUrl || rec.s3Key} />
                               )}
                           </div>
                       )})}
@@ -286,7 +271,7 @@ export default function HospitalDashboard() {
                       </div>
                       <div>
                           <label className="block text-sm font-medium text-slate-700 mb-1">Attach PDF (Optional)</label>
-                          <input type="file" accept="application/pdf" name="file" onChange={handleFileChange} className="w-full text-sm text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100" />
+                          <DocumentUploader onUploadComplete={handleDocumentAttach} />
                       </div>
                   </>
               )}
@@ -330,7 +315,7 @@ export default function HospitalDashboard() {
                       </div>
                       <div>
                           <label className="block text-sm font-medium text-slate-700 mb-1">Attach PDF (Optional)</label>
-                          <input type="file" accept="application/pdf" name="file" onChange={handleFileChange} className="w-full text-sm text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100" />
+                          <DocumentUploader onUploadComplete={handleDocumentAttach} />
                       </div>
                   </>
               )}
@@ -354,7 +339,7 @@ export default function HospitalDashboard() {
                       </div>
                       <div>
                           <label className="block text-sm font-medium text-slate-700 mb-1">Attach Invoice/Receipt (Optional PDF)</label>
-                          <input type="file" accept="application/pdf" name="file" onChange={handleFileChange} className="w-full text-sm text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100" />
+                          <DocumentUploader onUploadComplete={handleDocumentAttach} />
                       </div>
                   </>
               )}

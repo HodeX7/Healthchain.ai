@@ -2,8 +2,10 @@ import React, { useState, useEffect } from 'react';
 import { Card, CardHeader, CardTitle, CardContent } from '../components/ui/Card';
 import { Table, TableHeader, TableHead, TableBody, TableRow, TableCell } from '../components/ui/Table';
 import { Button } from '../components/ui/Button';
+import { Modal } from '../components/ui/Modal';
 import { Pill, Check, Clock } from 'lucide-react';
-import { PharmacyService, DocumentService } from '../services/api';
+import { PharmacyService } from '../services/api';
+import { DocumentViewer } from '../components/ui/DocumentViewer';
 
 export default function PharmacyDashboard() {
   const [prescriptions, setPrescriptions] = useState([]);
@@ -27,17 +29,7 @@ export default function PharmacyDashboard() {
     fetchPrescriptions();
   }, []);
 
-  const fetchDocumentLink = async (url) => {
-    try {
-      const res = await DocumentService.getDownloadUrl({ documentUrl: url });
-      if (res.success) {
-        window.open(res.downloadUrl, '_blank');
-      }
-    } catch (err) {
-      alert("Failed to fetch download link for document.");
-      console.error(err);
-    }
-  };
+
 
   const handleFulfill = async (e) => {
     e.preventDefault();
@@ -99,9 +91,9 @@ export default function PharmacyDashboard() {
                        {drugName}
                        <div className="text-xs text-slate-500 truncate w-48">{instructions}</div>
                        {(rxData.documentUrl || rxData.s3Key) && (
-                         <button onClick={() => fetchDocumentLink(rxData.documentUrl || rxData.s3Key)} className="mt-1 text-xs bg-green-100 hover:bg-green-200 text-green-700 font-medium px-2 py-0.5 rounded inline-flex items-center">
-                           📄 View PDF
-                         </button>
+                         <div className="mt-1">
+                           <DocumentViewer documentUrl={rxData.documentUrl || rxData.s3Key} />
+                         </div>
                        )}
                     </TableCell>
                     <TableCell className="text-slate-500">{rxData.hospitalId || rxData.hospitalOrg || rxData.hospital}</TableCell>

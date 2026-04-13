@@ -1,8 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { Card, CardHeader, CardTitle, CardContent, CardFooter } from '../components/ui/Card';
 import { Table, TableHeader, TableHead, TableBody, TableRow, TableCell } from '../components/ui/Table';
+import { Button } from '../components/ui/Button';
 import { ShieldAlert, FileSearch, CheckCircle2, XCircle } from 'lucide-react';
-import { InsuranceService, DocumentService } from '../services/api';
+import { InsuranceService } from '../services/api';
+import { DocumentViewer } from '../components/ui/DocumentViewer';
 
 export default function InsuranceDashboard() {
   const [claims, setClaims] = useState([]);
@@ -24,17 +26,7 @@ export default function InsuranceDashboard() {
     fetchClaims();
   }, []);
 
-  const fetchDocumentLink = async (url) => {
-    try {
-      const res = await DocumentService.getDownloadUrl({ documentUrl: url });
-      if (res.success) {
-        window.open(res.downloadUrl, '_blank');
-      }
-    } catch (err) {
-      alert("Failed to fetch download link for document.");
-      console.error(err);
-    }
-  };
+
 
   const handleProcessClaim = async (id, newStatus) => {
     if (newStatus !== 'approved') return; // backend API only supports claims/approve currently.
@@ -97,9 +89,9 @@ export default function InsuranceDashboard() {
                           <div className="font-medium text-slate-900">{serviceDesc}</div>
                           <div className="text-sm font-semibold text-emerald-600">${cData.totalAmount || cData.amount}</div>
                           {(cData.documentUrl || cData.s3Key) && (
-                            <button onClick={() => fetchDocumentLink(cData.documentUrl || cData.s3Key)} className="mt-1 text-xs bg-amber-100 hover:bg-amber-200 text-amber-700 font-medium px-2 py-0.5 rounded inline-flex items-center">
-                              📄 View Receipt
-                            </button>
+                            <div className="mt-1">
+                              <DocumentViewer documentUrl={cData.documentUrl || cData.s3Key} />
+                            </div>
                           )}
                         </TableCell>
                         <TableCell>

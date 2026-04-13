@@ -5,6 +5,8 @@ import { Button } from '../components/ui/Button';
 import { Modal } from '../components/ui/Modal';
 import { FlaskConical, UploadCloud, CheckCircle2, Clock } from 'lucide-react';
 import { LabService, DocumentService } from '../services/api';
+import { DocumentUploader } from '../components/ui/DocumentUploader';
+import { DocumentViewer } from '../components/ui/DocumentViewer';
 
 export default function LabDashboard() {
   const [orders, setOrders] = useState([]);
@@ -26,18 +28,16 @@ export default function LabDashboard() {
   useEffect(() => {
     fetchOrders();
   }, []);
-  const [file, setFile] = useState(null);
+  const [documentUrl, setDocumentUrl] = useState(null);
   const [notes, setNotes] = useState('');
   const [isUploading, setIsUploading] = useState(false);
+
+  const handleDocumentAttach = (url) => setDocumentUrl(url);
 
   const handleUpload = async (e) => {
     e.preventDefault();
     setIsUploading(true);
     try {
-      let documentUrl = null;
-      if (file) {
-          documentUrl = await DocumentService.uploadFileToGCS(file);
-      }
       
       await LabService.uploadReport({
           reportId: `REP${Math.floor(Math.random()*1000)}`,
@@ -49,7 +49,7 @@ export default function LabDashboard() {
       });
       
       setSelectedOrder(null);
-      setFile(null);
+      setDocumentUrl(null);
       setNotes('');
       await fetchOrders();
     } catch (err) {
@@ -141,7 +141,7 @@ export default function LabDashboard() {
              
              <div>
                 <label className="block text-sm font-medium text-slate-700 mb-1">Attach Final Report (PDF)</label>
-                <input type="file" accept="application/pdf" onChange={e => setFile(e.target.files[0])} className="w-full text-sm text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-purple-50 file:text-purple-700 hover:file:bg-purple-100" />
+                <DocumentUploader onUploadComplete={handleDocumentAttach} />
              </div>
              
              <div className="pt-4 flex justify-end space-x-2">
