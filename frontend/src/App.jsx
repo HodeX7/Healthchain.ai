@@ -38,7 +38,7 @@ export default function App() {
         {/* Protected Routes utilizing Layout */}
         <Route element={<Layout />}>
           <Route path="/dashboard" element={<RoleDashboardRouter />} />
-          <Route path="/records" element={<UnderConstruction />} />
+          <Route path="/records" element={<PatientDashboard />} />
           <Route path="/consents" element={<PatientDashboard />} /> {/* Consent modal is in dashboard, mapping to it */}
           <Route path="/audit" element={<PatientDashboard />} />
           <Route path="/create-record" element={<HospitalDashboard />} />
