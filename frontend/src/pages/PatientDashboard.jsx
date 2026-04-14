@@ -41,9 +41,15 @@ export default function PatientDashboard() {
         const profileRes = await PatientService.getProfile(patientId);
         setProfile(profileRes.data);
 
-        // Only fetch records if the backend is configured to support patient reads, 
-        // which currently throws a 500 due to PDC isolation
-        // Skipping PatientService.getRecords() to prevent the red console errors.
+        // Backend PDC isolation is resolved; fetch patient records securely
+        try {
+          const recordsRes = await PatientService.getRecords(patientId);
+          if (recordsRes && recordsRes.data) {
+            setRecords(Array.isArray(recordsRes.data) ? recordsRes.data : []);
+          }
+        } catch (err) {
+          console.warn("Failed to fetch medical records for patient portal", err);
+        }
 
         // Fetch audit logs
         try {

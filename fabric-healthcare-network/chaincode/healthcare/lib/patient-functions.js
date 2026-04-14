@@ -307,7 +307,7 @@ class PatientFunctions {
       try {
         const prefixes = [`RECORD_${patientId}_`, `REP`];
         for (const prefix of prefixes) {
-          const iterator = await ctx.stub.getPrivateDataByRange(pdcName, prefix, prefix + '~');
+          const iterator = await ctx.stub.getPrivateDataByRange(pdcName, prefix, prefix + 'zzzz');
           let result = await iterator.next();
           while (result && !result.done) {
             try {

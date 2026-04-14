@@ -150,7 +150,8 @@ class HospitalFunctions {
         }
         await iterator.close();
       } catch (error) {
-        console.log(`CouchDB query failed for ${pdcName}`);
+        allRecords.push({ docType: 'error_log', error: `CouchDB selector failed: ${error.message}` });
+        console.log(`CouchDB query failed for ${pdcName}: ${error.message}`);
       }
 
       // 2. ID Probe (Test compatibility & indexing bypass)
@@ -169,7 +170,7 @@ class HospitalFunctions {
       try {
         const prefixes = [`RECORD_${patientId}_`, `REP`];
         for (const prefix of prefixes) {
-          const iterator = await ctx.stub.getPrivateDataByRange(pdcName, prefix, prefix + '~');
+          const iterator = await ctx.stub.getPrivateDataByRange(pdcName, prefix, prefix + 'zzzz');
           let result = await iterator.next();
           while (result && !result.done) {
             try {
@@ -186,7 +187,8 @@ class HospitalFunctions {
           await iterator.close();
         }
       } catch (error) {
-        console.log(`Range query failed for ${pdcName}`);
+        allRecords.push({ docType: 'error_log', error: `Range query failed: ${error.message}` });
+        console.log(`Range query failed for ${pdcName}: ${error.message}`);
       }
     }
 
