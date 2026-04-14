@@ -6,7 +6,7 @@ class InsuranceFunctions {
     verifyIdentity(ctx, 'InsuranceOrgMSP');
 
     const claims = [];
-    const iterator = await ctx.stub.getStateByRange('CLAIM', 'CLAIMzzzz');
+    const iterator = await ctx.stub.getStateByRange('CLM', 'CLMzzzz');
     let result = await iterator.next();
 
     while (!result.done) {

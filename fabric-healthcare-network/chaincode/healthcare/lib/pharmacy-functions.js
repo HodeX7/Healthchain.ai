@@ -17,7 +17,7 @@ class PharmacyFunctions {
     // Let's filter by checking if the object has `medications` array (which implies a prescription).
 
     // Better: let's scan prescriptions prefix
-    const allIterator = await ctx.stub.getStateByRange('PRES', 'PRESzzzz');
+    const allIterator = await ctx.stub.getStateByRange('RX', 'RXzzzz');
     let result = await allIterator.next();
 
     while (!result.done) {
