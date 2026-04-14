@@ -16,6 +16,10 @@ api.interceptors.request.use((config) => {
   if (role) {
     config.headers['X-User-Role'] = role;
   }
+  // Bust cache on GET requests so newly created records always appear
+  if (config.method === 'get') {
+    config.params = { ...config.params, _t: Date.now() };
+  }
   return config;
 });
 
