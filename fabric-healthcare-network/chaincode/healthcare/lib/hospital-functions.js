@@ -165,23 +165,26 @@ class HospitalFunctions {
         }
       } catch (e) { }
 
-      // 3. Fallback Range Query
+      // 3. Fallback Range Query (Prefixes)
       try {
-        const iterator = await ctx.stub.getPrivateDataByRange(pdcName, '\x00', '~');
-        let result = await iterator.next();
-        while (result && !result.done) {
-          try {
-            const record = JSON.parse(result.value.value.toString());
-            if ((record.docType === 'medicalRecord' || record.docType === 'labReport') && record.patientId === patientId) {
-              const idField = record.recordId || record.reportId;
-              if (!allRecords.find(r => (r.recordId || r.reportId) === idField)) {
-                allRecords.push(record);
+        const prefixes = [`RECORD_${patientId}_`, `REP`];
+        for (const prefix of prefixes) {
+          const iterator = await ctx.stub.getPrivateDataByRange(pdcName, prefix, prefix + '~');
+          let result = await iterator.next();
+          while (result && !result.done) {
+            try {
+              const record = JSON.parse(result.value.value.toString());
+              if ((record.docType === 'medicalRecord' || record.docType === 'labReport') && record.patientId === patientId) {
+                const idField = record.recordId || record.reportId;
+                if (!allRecords.find(r => (r.recordId || r.reportId) === idField)) {
+                  allRecords.push(record);
+                }
               }
-            }
-          } catch (e) { }
-          result = await iterator.next();
+            } catch (e) { }
+            result = await iterator.next();
+          }
+          await iterator.close();
         }
-        await iterator.close();
       } catch (error) {
         console.log(`Range query failed for ${pdcName}`);
       }
