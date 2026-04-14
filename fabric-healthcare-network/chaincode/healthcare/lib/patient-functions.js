@@ -215,7 +215,7 @@ class PatientFunctions {
     verifyIdentity(ctx, 'PatientOrgMSP');
     
     const startKey = `ACCESS_REQUEST_${patientId}_`;
-    const endKey = `ACCESS_REQUEST_${patientId}_\uffff`;
+    const endKey = `ACCESS_REQUEST_${patientId}_~`;
     
     const iterator = await ctx.stub.getStateByRange(startKey, endKey);
     const requests = [];
@@ -238,7 +238,7 @@ class PatientFunctions {
     
     // Query all consents for this patient
     const startKey = `CONSENT_${patientId}_`;
-    const endKey = `CONSENT_${patientId}_\uffff`;
+    const endKey = `CONSENT_${patientId}_~`;
     
     const iterator = await ctx.stub.getStateByRange(startKey, endKey);
     const consents = [];
@@ -332,7 +332,7 @@ class PatientFunctions {
     verifyIdentity(ctx, 'PatientOrgMSP');
     
     const startKey = `AUDIT_${patientId}_`;
-    const endKey = `AUDIT_${patientId}_\uffff`;
+    const endKey = `AUDIT_${patientId}_~`;
     
     const iterator = await ctx.stub.getStateByRange(startKey, endKey);
     const logs = [];
