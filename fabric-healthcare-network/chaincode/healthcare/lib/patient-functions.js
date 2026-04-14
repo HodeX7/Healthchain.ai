@@ -305,7 +305,7 @@ class PatientFunctions {
 
       // 3. Range Query Fallback
       try {
-        const iterator = await ctx.stub.getPrivateDataByRange(pdcName, '', '~');
+        const iterator = await ctx.stub.getPrivateDataByRange(pdcName, '\x00', '~');
         let result = await iterator.next();
         while (result && !result.done) {
           try {
