@@ -82,7 +82,7 @@ export default function PharmacyDashboard() {
                   const rxData = rx.Record || rx;
                   const meds = Array.isArray(rxData.medications) ? rxData.medications[0] : rxData.medications;
                   const drugName = rxData.drug || (meds?.name);
-                  const instructions = rxData.instructions || (meds?.instructions);
+                  const instructions = rxData.instructions || (meds?.dosage) || (meds?.instructions);
                   return (
                   <TableRow key={rxData.prescriptionId || rx.Key}>
                     <TableCell className="font-mono text-sm font-medium text-slate-700">{rxData.prescriptionId || rx.Key}</TableCell>

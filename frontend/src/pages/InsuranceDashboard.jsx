@@ -73,7 +73,7 @@ export default function InsuranceDashboard() {
                       </TableRow>
                     ) : claims.map((claim) => {
                       const cData = claim.Record || claim;
-                      const serviceDesc = Array.isArray(cData.procedures) ? cData.procedures[0]?.description : (cData.service || 'Medical Service');
+                      const serviceDesc = Array.isArray(cData.procedures) ? (cData.procedures[0]?.description || cData.procedures[0]?.code) : (cData.service || 'Medical Service');
                       const claimDate = cData.timestamp ? new Date(cData.timestamp).toLocaleDateString() : cData.date;
                       return (
                       <TableRow key={cData.claimId || claim.Key}>
