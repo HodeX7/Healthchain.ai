@@ -150,7 +150,6 @@ class HospitalFunctions {
         }
         await iterator.close();
       } catch (error) {
-        allRecords.push({ docType: 'error_log', error: `CouchDB selector failed: ${error.message}` });
         console.log(`CouchDB query failed for ${pdcName}: ${error.message}`);
       }
 
@@ -187,7 +186,6 @@ class HospitalFunctions {
           await iterator.close();
         }
       } catch (error) {
-        allRecords.push({ docType: 'error_log', error: `Range query failed: ${error.message}` });
         console.log(`Range query failed for ${pdcName}: ${error.message}`);
       }
     }

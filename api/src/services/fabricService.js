@@ -41,7 +41,7 @@ class FabricService {
         await gateway.connect(ccp, {
             wallet,
             identity: userId,
-            discovery: { enabled: true, asLocalhost: true },
+            discovery: { enabled: false, asLocalhost: true },
         });
 
         const network = await gateway.getNetwork(CHANNEL_NAME);

@@ -24,7 +24,7 @@ export const PatientService = {
   getProfile: (id) => api.get(`/patient/${id}`).then(res => res.data),
   grantConsent: (id, hospitalId, collections) => api.post(`/patient/${id}/consents/grant`, { hospitalMsp: hospitalId, collections }).then(res => res.data),
   revokeConsent: (id, hospitalId) => api.post(`/patient/${id}/consents/revoke`, { hospitalMsp: hospitalId }).then(res => res.data),
-  getRecords: (id) => api.get(`/hospital/patients/${id}/records`).then(res => res.data),
+  getRecords: (id) => api.get(`/patient/${id}/records`).then(res => res.data),
   getAuditLogs: (id) => api.get(`/patient/${id}/audit-logs`).then(res => res.data),
   getConsents: (id) => api.get(`/patient/${id}/consents`).then(res => res.data),
   getAccessRequests: (id) => api.get(`/patient/${id}/access-requests`).then(res => res.data),
