@@ -1,4 +1,4 @@
-const { Gateway, Wallets } = require('fabric-network');
+const { Gateway, Wallets, DefaultQueryHandlerStrategies } = require('fabric-network');
 const fs = require('fs');
 const path = require('path');
 const { CHANNEL_NAME, CHAINCODE_NAME, CRYPTO_PATH, getOrgDetails, buildCCP } = require('../config/fabricConfig');
@@ -41,7 +41,10 @@ class FabricService {
         await gateway.connect(ccp, {
             wallet,
             identity: userId,
-            discovery: { enabled: false, asLocalhost: true },
+            discovery: { enabled: true, asLocalhost: true },
+            queryHandlerOptions: {
+                strategy: DefaultQueryHandlerStrategies.MSPID_SCOPE_SINGLE
+            },
         });
 
         const network = await gateway.getNetwork(CHANNEL_NAME);
