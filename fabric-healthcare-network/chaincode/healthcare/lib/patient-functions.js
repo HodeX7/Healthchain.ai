@@ -293,7 +293,7 @@ class PatientFunctions {
 
       // 2. ID Probe Strategy (indexing bypass)
       try {
-        const probeIds = ['REC001', 'REC002', 'REC003', 'REC004', 'REC010', 'REC020', 'REC021', 'REC022'];
+        const probeIds = Array.from({length: 50}, (_, i) => `REC${String(i + 1).padStart(3, '0')}`);
         for (const rid of probeIds) {
           if (allRecords.find(r => r.recordId === rid)) continue;
           const bytes = await ctx.stub.getPrivateData(pdcName, `RECORD_${patientId}_${rid}`);

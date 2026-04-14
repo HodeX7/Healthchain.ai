@@ -80,6 +80,15 @@ export default function HospitalDashboard() {
     setActiveModal(type);
   };
 
+
+  // Generate a sequential ID per patient using localStorage so the chaincode probe strategy can find it
+  const getNextId = (prefix, patientId) => {
+    const key = `hc_seq_${prefix}_${patientId}`;
+    const next = parseInt(localStorage.getItem(key) || '0', 10) + 1;
+    localStorage.setItem(key, String(next));
+    return `${prefix}${String(next).padStart(3, '0')}`;
+  };
+
   const handleModalSubmit = async (e) => {
     e.preventDefault();
     setModalLoading(true);
@@ -88,22 +97,22 @@ export default function HospitalDashboard() {
       
       switch(activeModal) {
           case 'note':
-              dataPayload.recordId = `REC${Math.floor(Math.random() * 1000)}`;
+              dataPayload.recordId = getNextId('REC', activePatientId);
               await HospitalService.createRecord(dataPayload);
               break;
           case 'lab':
-              dataPayload.orderId = `ORD${Math.floor(Math.random() * 1000)}`;
+              dataPayload.orderId = getNextId('ORD', activePatientId);
               await HospitalService.orderLabTest(dataPayload);
               break;
           case 'prescription':
-              dataPayload.prescriptionId = `RX${Math.floor(Math.random() * 1000)}`;
+              dataPayload.prescriptionId = getNextId('RX', activePatientId);
               // Medications assumed to be formatted string or JSON list depending on frontend form:
               dataPayload.medications = [{ name: formData.medication, dosage: formData.dosage }];
               await HospitalService.issuePrescription(dataPayload);
               break;
           case 'claim':
               dataPayload.procedures = [{ code: formData.serviceDetails, cost: formData.amount }];
-              dataPayload.claimId = `CLM${Math.floor(Math.random() * 1000)}`;
+              dataPayload.claimId = getNextId('CLM', activePatientId);
               dataPayload.serviceDate = new Date().toISOString().split('T')[0];
               dataPayload.totalAmount = formData.amount;
               await HospitalService.submitClaim(dataPayload);
