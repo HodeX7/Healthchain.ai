@@ -101,6 +101,14 @@ class HealthchainContract extends Contract {
     return await PatientFunctions.getAuditLog(ctx, patientId);
   }
 
+  async getAccessRequests(ctx, patientId) {
+    return await PatientFunctions.getAccessRequests(ctx, patientId);
+  }
+
+  async rejectAccessRequest(ctx, patientId, hospitalOrg) {
+    return await PatientFunctions.rejectAccessRequest(ctx, patientId, hospitalOrg);
+  }
+
   // ==================== HOSPITAL FUNCTIONS ====================
   
   async requestAccess(ctx, patientId) {
