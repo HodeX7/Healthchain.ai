@@ -215,7 +215,7 @@ class PatientFunctions {
     verifyIdentity(ctx, 'PatientOrgMSP');
     
     const startKey = `ACCESS_REQUEST_${patientId}_`;
-    const endKey = `ACCESS_REQUEST_${patientId}_\\uffff`;
+    const endKey = `ACCESS_REQUEST_${patientId}_\uffff`;
     
     const iterator = await ctx.stub.getStateByRange(startKey, endKey);
     const requests = [];

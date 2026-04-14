@@ -79,7 +79,7 @@ export default function PatientDashboard() {
     };
 
     fetchData();
-  }, [patientId]);
+  }, [patientId, currentPath]);
 
   const handleGrantConsent = async (e) => {
     e.preventDefault();
