@@ -9,5 +9,8 @@ router.post('/:id/consents/grant', PatientController.grantConsent);
 router.post('/:id/consents/revoke', PatientController.revokeConsent);
 router.get('/:id/records', PatientController.getRecords);
 router.get('/:id/audit-logs', PatientController.getAuditLogs);
+router.get('/:id/consents', PatientController.getConsents);
+router.get('/:id/access-requests', PatientController.getAccessRequests);
+router.post('/:id/access-requests/reject', PatientController.rejectAccessRequest);
 
 module.exports = router;

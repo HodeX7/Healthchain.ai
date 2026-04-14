@@ -27,11 +27,15 @@ export default function HospitalDashboard() {
     setRequestStatus('');
     try {
       const recordsRes = await HospitalService.getPatientRecords(idToFetch);
-      setPatientData({
-        name: `Patient ${idToFetch}`,
-        status: 'Access Granted',
-        records: Array.isArray(recordsRes.data) ? recordsRes.data : []
-      });
+      if (recordsRes.status === 'access_pending') {
+          setPatientData({ error: 'pending', message: recordsRes.message });
+      } else {
+          setPatientData({
+            name: `Patient ${idToFetch}`,
+            status: 'Access Granted',
+            records: Array.isArray(recordsRes.data) ? recordsRes.data : []
+          });
+      }
     } catch (error) {
       console.error(error);
       const backendMsg = error.response?.data?.error || error.message;
@@ -164,22 +168,28 @@ export default function HospitalDashboard() {
       {hasSearched && patientData && (
         <div className="animate-in slide-in-from-top-4 duration-300">
           {patientData.error ? (
-            <div className="p-4 bg-red-50 border border-red-200 rounded-xl flex flex-col sm:flex-row sm:items-center justify-between shadow-sm">
+            <div className={`p-4 ${patientData.error === 'pending' ? 'bg-yellow-50 border-yellow-200' : 'bg-red-50 border-red-200'} rounded-xl flex flex-col sm:flex-row sm:items-center justify-between shadow-sm`}>
                 <div className="flex items-start sm:items-center mb-4 sm:mb-0">
-                    <ShieldAlertIcon className="w-6 h-6 mr-3 text-red-600 flex-shrink-0" />
+                    <ShieldAlertIcon className={`w-6 h-6 mr-3 ${patientData.error === 'pending' ? 'text-yellow-600' : 'text-red-600'} flex-shrink-0`} />
                     <div>
-                        <span className="font-bold text-red-900 block">Access Denied by Network</span>
-                        <p className="text-sm text-red-700 mt-1">{patientData.error}</p>
-                        <p className="text-xs text-red-600 mt-1 opacity-80">This usually means the patient has not explicitly granted your organization read access to their Private Data Collection.</p>
+                        <span className={`font-bold ${patientData.error === 'pending' ? 'text-yellow-900' : 'text-red-900'} block`}>
+                            {patientData.error === 'pending' ? 'Access Pending' : 'Access Denied by Network'}
+                        </span>
+                        <p className={`text-sm ${patientData.error === 'pending' ? 'text-yellow-700' : 'text-red-700'} mt-1`}>
+                            {patientData.error === 'pending' ? patientData.message : patientData.error}
+                        </p>
+                        {patientData.error !== 'pending' && <p className="text-xs text-red-600 mt-1 opacity-80">This usually means the patient has not explicitly granted your organization read access to their Private Data Collection.</p>}
                     </div>
                 </div>
                 
-                <div className="flex flex-col items-end">
-                  <Button onClick={handleRequestAccess} disabled={isLoading || requestStatus.includes('Sent')} className="whitespace-nowrap bg-red-600 hover:bg-red-700">
-                    <Key className="w-4 h-4 mr-2" /> Request Access
-                  </Button>
-                  {requestStatus && <span className="text-xs font-medium text-red-600 mt-2">{requestStatus}</span>}
-                </div>
+                {patientData.error !== 'pending' && (
+                  <div className="flex flex-col items-end">
+                    <Button onClick={handleRequestAccess} disabled={isLoading || requestStatus.includes('Sent')} className="whitespace-nowrap bg-red-600 hover:bg-red-700">
+                      <Key className="w-4 h-4 mr-2" /> Request Access
+                    </Button>
+                    {requestStatus && <span className="text-xs font-medium text-red-600 mt-2">{requestStatus}</span>}
+                  </div>
+                )}
             </div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">

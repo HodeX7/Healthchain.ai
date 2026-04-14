@@ -20,6 +20,14 @@ const HospitalController = {
             const result = await FabricService.query(ORG_ROLE, 'User1', 'queryPatientRecords', id);
             res.json({ success: true, data: result });
         } catch (error) {
+            if (error.message && error.message.includes('No active consent')) {
+                 try {
+                     await FabricService.invoke(ORG_ROLE, 'User1', 'requestAccess', id);
+                     return res.status(202).json({ success: false, status: 'access_pending', message: 'Access requested automatically. Waiting for patient approval.' });
+                 } catch (reqErr) {
+                     return res.status(500).json({ success: false, error: reqErr.message });
+                 }
+            }
             res.status(500).json({ success: false, error: error.message });
         }
     },

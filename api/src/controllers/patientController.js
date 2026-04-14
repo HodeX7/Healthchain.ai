@@ -65,6 +65,37 @@ const PatientController = {
         } catch (error) {
             res.status(500).json({ success: false, error: error.message });
         }
+    },
+
+    getConsents: async (req, res) => {
+        try {
+            const { id } = req.params;
+            const result = await FabricService.query(ORG_ROLE, 'User1', 'getMyConsents', id);
+            res.json({ success: true, data: result });
+        } catch (error) {
+            res.status(500).json({ success: false, error: error.message });
+        }
+    },
+
+    getAccessRequests: async (req, res) => {
+        try {
+            const { id } = req.params;
+            const result = await FabricService.query(ORG_ROLE, 'User1', 'getAccessRequests', id);
+            res.json({ success: true, data: result });
+        } catch (error) {
+            res.status(500).json({ success: false, error: error.message });
+        }
+    },
+
+    rejectAccessRequest: async (req, res) => {
+        try {
+            const { id } = req.params;
+            const { hospitalMsp } = req.body;
+            const result = await FabricService.invoke(ORG_ROLE, 'User1', 'rejectAccessRequest', id, hospitalMsp);
+            res.json({ success: true, message: `Access request from ${hospitalMsp} rejected`, data: result });
+        } catch (error) {
+            res.status(500).json({ success: false, error: error.message });
+        }
     }
 };
 

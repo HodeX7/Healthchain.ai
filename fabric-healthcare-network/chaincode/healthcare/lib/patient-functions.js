@@ -126,6 +126,18 @@ class PatientFunctions {
       grantedAt: consent.grantedAt
     })));
     
+    // Mark pending access request as approved if it exists
+    const requestKey = `ACCESS_REQUEST_${patientId}_${hospitalOrg}`;
+    const requestBytes = await ctx.stub.getState(requestKey);
+    if (requestBytes && requestBytes.length > 0) {
+      const request = JSON.parse(requestBytes.toString());
+      if (request.status === 'pending') {
+         request.status = 'approved';
+         request.updatedAt = getTimestamp(ctx);
+         await ctx.stub.putState(requestKey, Buffer.from(JSON.stringify(request)));
+      }
+    }
+    
     return JSON.stringify(consent);
   }
 
@@ -166,6 +178,58 @@ class PatientFunctions {
     })));
     
     return JSON.stringify(consent);
+  }
+
+  static async rejectAccessRequest(ctx, patientId, hospitalOrg) {
+    // Verify caller is the patient
+    verifyIdentity(ctx, 'PatientOrgMSP');
+    
+    // Update access request status
+    const requestKey = `ACCESS_REQUEST_${patientId}_${hospitalOrg}`;
+    const requestBytes = await ctx.stub.getState(requestKey);
+    
+    if (!requestBytes || requestBytes.length === 0) {
+      throw new Error(`No access request found for ${hospitalOrg}`);
+    }
+    
+    const request = JSON.parse(requestBytes.toString());
+    request.status = 'rejected';
+    request.updatedAt = getTimestamp(ctx);
+    
+    await ctx.stub.putState(requestKey, Buffer.from(JSON.stringify(request)));
+    
+    // Create audit log
+    await createAuditLog(ctx, {
+      action: 'REJECT_ACCESS_REQUEST',
+      patientId,
+      hospitalOrg,
+      actor: ctx.clientIdentity.getID(),
+      timestamp: getTimestamp(ctx)
+    });
+    
+    return JSON.stringify(request);
+  }
+
+  static async getAccessRequests(ctx, patientId) {
+    // Verify caller is the patient
+    verifyIdentity(ctx, 'PatientOrgMSP');
+    
+    const startKey = `ACCESS_REQUEST_${patientId}_`;
+    const endKey = `ACCESS_REQUEST_${patientId}_\\uffff`;
+    
+    const iterator = await ctx.stub.getStateByRange(startKey, endKey);
+    const requests = [];
+    
+    let result = await iterator.next();
+    while (!result.done) {
+      const request = JSON.parse(result.value.value.toString());
+      requests.push(request);
+      result = await iterator.next();
+    }
+    
+    await iterator.close();
+    
+    return JSON.stringify(requests);
   }
 
   static async getMyConsents(ctx, patientId) {

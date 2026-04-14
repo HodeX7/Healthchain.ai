@@ -12,6 +12,8 @@ export default function PatientDashboard() {
   const [profile, setProfile] = useState(null);
   const [records, setRecords] = useState([]);
   const [auditLogs, setAuditLogs] = useState([]);
+  const [activeConsents, setActiveConsents] = useState([]);
+  const [pendingRequests, setPendingRequests] = useState([]);
   const [isConsentModalOpen, setConsentModalOpen] = useState(false);
   const [isRevokeModalOpen, setRevokeModalOpen] = useState(false);
   const [hospitalIdInput, setHospitalIdInput] = useState('');
@@ -56,6 +58,20 @@ export default function PatientDashboard() {
             console.warn("Failed to fetch audit logs", err);
         }
 
+        try {
+          const consentsRes = await PatientService.getConsents(patientId);
+          setActiveConsents(Array.isArray(consentsRes.data) ? consentsRes.data.filter(c => (c.Record || c).status === 'active').map(c => c.Record || c) : []);
+        } catch (err) {
+            console.warn("Failed to fetch consents", err);
+        }
+
+        try {
+          const requestsRes = await PatientService.getAccessRequests(patientId);
+          setPendingRequests(Array.isArray(requestsRes.data) ? requestsRes.data.filter(r => (r.Record || r).status === 'pending').map(r => r.Record || r) : []);
+        } catch (err) {
+            console.warn("Failed to fetch access requests", err);
+        }
+
       } catch (err) {
         setError("Failed to fetch patient data from the blockchain.");
         console.error(err);
@@ -88,11 +104,55 @@ export default function PatientDashboard() {
       setAuditLogs(sortedLogs);
       setConsentModalOpen(false);
       setHospitalIdInput('');
+      
+      // Remove from pending if it was there
+      setPendingRequests(prev => prev.filter(r => r.hospitalOrg !== mspId));
+      // Add to active consents
+      const consentsRes = await PatientService.getConsents(patientId);
+      setActiveConsents(Array.isArray(consentsRes.data) ? consentsRes.data.filter(c => (c.Record || c).status === 'active').map(c => c.Record || c) : []);
+
       alert("Access granted successfully on the ledger!");
     } catch (err) {
       const backendMsg = err.response?.data?.error || err.message;
       alert(`Failed to grant access:\n${backendMsg}`);
       console.error(err);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleApproveRequest = async (hospitalId) => {
+    setIsLoading(true);
+    try {
+      const collections = [
+         `collectionMedicalRecords_${hospitalId.replace('OrgMSP', '')}`,
+         `collectionLabReports_${hospitalId.replace('OrgMSP', '')}`,
+         `collectionPrescriptions_${hospitalId.replace('OrgMSP', '')}`,
+         `collectionInsuranceClaims_${hospitalId.replace('OrgMSP', '')}`
+      ];
+      await PatientService.grantConsent(patientId, hospitalId, collections);
+      
+      // Update ui
+      setPendingRequests(prev => prev.filter(r => r.hospitalOrg !== hospitalId));
+      const consentsRes = await PatientService.getConsents(patientId);
+      setActiveConsents(Array.isArray(consentsRes.data) ? consentsRes.data.filter(c => (c.Record || c).status === 'active').map(c => c.Record || c) : []);
+      
+      alert("Access granted successfully from pending request!");
+    } catch (err) {
+      alert(`Failed to grant access: ${err.message}`);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleRejectRequest = async (hospitalId) => {
+    setIsLoading(true);
+    try {
+      await PatientService.rejectAccessRequest(patientId, hospitalId);
+      setPendingRequests(prev => prev.filter(r => r.hospitalOrg !== hospitalId));
+      alert("Access request rejected.");
+    } catch (err) {
+       alert(`Failed to reject request: ${err.message}`);
     } finally {
       setIsLoading(false);
     }
@@ -114,11 +174,32 @@ export default function PatientDashboard() {
       setAuditLogs(sortedLogs);
       setRevokeModalOpen(false);
       setHospitalIdInput('');
+      setActiveConsents(prev => prev.filter(c => c.hospitalOrg !== mspId));
       alert("Access revoked successfully on the ledger!");
     } catch (err) {
       const backendMsg = err.response?.data?.error || err.message;
       alert(`Failed to revoke access:\n${backendMsg}`);
       console.error(err);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleRevokeConsentInline = async (hospitalId) => {
+    setIsLoading(true);
+    try {
+      await PatientService.revokeConsent(patientId, hospitalId);
+      setActiveConsents(prev => prev.filter(c => c.hospitalOrg !== hospitalId));
+      
+      const logsRes = await PatientService.getAuditLogs(patientId);
+      const sortedLogs = (Array.isArray(logsRes.data) ? logsRes.data : []).sort((a, b) => {
+          return new Date((b.Record || b).timestamp || 0).getTime() - new Date((a.Record || a).timestamp || 0).getTime();
+      });
+      setAuditLogs(sortedLogs);
+      
+      alert("Access revoked successfully.");
+    } catch (err) {
+       alert(`Failed to revoke access: ${err.message}`);
     } finally {
       setIsLoading(false);
     }
@@ -208,24 +289,67 @@ export default function PatientDashboard() {
           )}
 
           {currentPath === '/consents' && (
-            <Card className="max-w-3xl">
-              <CardHeader>
-                <CardTitle className=" flex items-center"><Shield className="w-5 h-5 mr-2 text-green-500" /> Manage Data Consents</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-6">
-                <p className="text-slate-600">
-                  You are in full control of your private medical data. Use the buttons below to dynamically grant or revoke cryptographic access to healthcare organizations on the Healthchain network.
-                </p>
-                <div className="flex space-x-4 pt-2">
-                    <Button onClick={() => setConsentModalOpen(true)} className="flex items-center">
-                    <Key className="w-4 h-4 mr-2" /> Grant New Access
-                    </Button>
-                    <Button onClick={() => setRevokeModalOpen(true)} variant="secondary" className="flex items-center text-red-600 hover:text-red-700 hover:bg-red-50 border-red-200">
-                    <Lock className="w-4 h-4 mr-2" /> Revoke Access
-                    </Button>
-                </div>
-              </CardContent>
-            </Card>
+            <div className="space-y-6 max-w-3xl">
+              {pendingRequests.length > 0 && (
+                <Card className="border-l-4 border-l-yellow-500">
+                  <CardHeader>
+                    <CardTitle className=" flex items-center text-yellow-700">Pending Access Requests</CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    {pendingRequests.map(req => (
+                        <div key={req.hospitalOrg} className="flex flex-col sm:flex-row justify-between items-start sm:items-center p-4 border rounded-lg bg-yellow-50 border-yellow-100 shadow-sm">
+                           <div className="mb-3 sm:mb-0">
+                                <h4 className="font-bold text-slate-800 flex items-center"><ShieldAlertIcon className="w-4 h-4 mr-2 text-yellow-500"/> {req.hospitalOrg}</h4>
+                                <p className="text-xs text-slate-500 mt-1">Requested at: {new Date(req.requestedAt).toLocaleString()}</p>
+                           </div>
+                           <div className="flex space-x-2 w-full sm:w-auto">
+                               <Button size="sm" disabled={isLoading} onClick={() => handleApproveRequest(req.hospitalOrg)} className="bg-green-600 hover:bg-green-700 flex-1 sm:flex-none">Approve</Button>
+                               <Button size="sm" disabled={isLoading} onClick={() => handleRejectRequest(req.hospitalOrg)} className="bg-red-600 hover:bg-red-700 flex-1 sm:flex-none">Reject</Button>
+                           </div>
+                        </div>
+                    ))}
+                  </CardContent>
+                </Card>
+              )}
+
+              <Card>
+                <CardHeader>
+                  <CardTitle className=" flex items-center"><Shield className="w-5 h-5 mr-2 text-green-500" /> Active Consents</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-6">
+                  <p className="text-slate-600">
+                    These organizations currently have view access to your medical records.
+                  </p>
+                  
+                  {activeConsents.length > 0 ? (
+                      <div className="space-y-3">
+                         {activeConsents.map(consent => (
+                            <div key={consent.hospitalOrg} className="flex justify-between items-center p-4 border rounded-lg hover:shadow-sm transition-shadow">
+                               <div>
+                                    <h4 className="font-bold text-slate-800">{consent.hospitalOrg}</h4>
+                                    <p className="text-xs text-slate-500">Granted at: {new Date(consent.grantedAt).toLocaleString()}</p>
+                               </div>
+                               <Button size="sm" variant="danger" disabled={isLoading} onClick={() => handleRevokeConsentInline(consent.hospitalOrg)}>
+                                   Revoke Access
+                               </Button>
+                            </div>
+                         ))}
+                      </div>
+                  ) : (
+                      <p className="text-sm text-slate-500 italic">No active consents found.</p>
+                  )}
+
+                  <div className="flex space-x-4 pt-6 mt-4 border-t border-slate-100">
+                      <Button onClick={() => setConsentModalOpen(true)} className="flex items-center text-sm" variant="secondary">
+                      <Key className="w-4 h-4 mr-2" /> Grant New Access Manually
+                      </Button>
+                      <Button onClick={() => setRevokeModalOpen(true)} variant="secondary" className="flex items-center text-sm text-red-600 hover:text-red-700 hover:bg-red-50 border-red-200">
+                      <Lock className="w-4 h-4 mr-2" /> Revoke Access Manually
+                      </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
           )}
 
           {currentPath === '/audit' && (
@@ -323,4 +447,8 @@ export default function PatientDashboard() {
 
 function UserIcon(props) {
   return <svg {...props} xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" d="M15.75 6a3.75 3.75 0 1 1-7.5 0 3.75 3.75 0 0 1 7.5 0ZM4.501 20.118a7.5 7.5 0 0 1 14.998 0A17.933 17.933 0 0 1 12 21.75c-2.676 0-5.216-.584-7.499-1.632Z" /></svg>;
+}
+
+function ShieldAlertIcon(props) {
+  return <svg {...props} xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3Z" /></svg>;
 }
