@@ -167,7 +167,7 @@ class HospitalFunctions {
 
       // 3. Fallback Range Query
       try {
-        const iterator = await ctx.stub.getPrivateDataByRange(pdcName, '', '');
+        const iterator = await ctx.stub.getPrivateDataByRange(pdcName, '', '~');
         let result = await iterator.next();
         while (result && !result.done) {
           try {
