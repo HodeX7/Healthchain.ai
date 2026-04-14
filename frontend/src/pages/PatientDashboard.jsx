@@ -270,8 +270,8 @@ export default function PatientDashboard() {
                       const recData = r.Record || r;
                       return (
                       <TableRow key={i}>
-                        <TableCell className="text-slate-500">{recData.date ? new Date(recData.date).toLocaleDateString() : 'N/A'}</TableCell>
-                        <TableCell className="font-medium text-slate-900">{recData.hospitalId ? recData.hospitalId.replace('OrgMSP', '') : 'N/A'}</TableCell>
+                        <TableCell className="text-slate-500">{recData.createdAt ? new Date(recData.createdAt).toLocaleDateString() : (recData.date ? new Date(recData.date).toLocaleDateString() : 'N/A')}</TableCell>
+                        <TableCell className="font-medium text-slate-900">{recData.hospitalOrg ? recData.hospitalOrg.replace('OrgMSP', '') : (recData.hospitalId ? recData.hospitalId.replace('OrgMSP', '') : 'N/A')}</TableCell>
                         <TableCell>
                           {recData.diagnosis || recData.description || 'Record entry'}
                           {(recData.documentUrl || recData.s3Key) && (
@@ -280,7 +280,7 @@ export default function PatientDashboard() {
                             </div>
                           )}
                         </TableCell>
-                        <TableCell className="text-slate-500">{recData.doctor || 'Unknown'}</TableCell>
+                        <TableCell className="text-slate-500">{recData.createdBy ? ((recData.createdBy.match(/CN=([^:/]+)/) || [])[1] || 'Doctor') : (recData.doctor || 'Unknown')}</TableCell>
                       </TableRow>
                     )})}
                     {records.length === 0 && (
