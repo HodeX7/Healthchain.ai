@@ -43,7 +43,7 @@ export default function LabDashboard() {
           reportId: `REP${Math.floor(Math.random()*1000)}`,
           orderId: selectedOrder.orderId || selectedOrder.id,
           patientId: selectedOrder.patientId || selectedOrder.patient,
-          testName: selectedOrder.testName || selectedOrder.test,
+          testName: selectedOrder.testName || selectedOrder.testType || selectedOrder.test,
           testResults: { notes },
           documentUrl
       });
@@ -102,7 +102,7 @@ export default function LabDashboard() {
                   <TableRow key={oData.orderId || o.Key}>
                     <TableCell className="font-mono text-sm font-medium text-slate-700">{oData.orderId || o.Key}</TableCell>
                     <TableCell className="text-slate-500">{oData.patientId || oData.patient}</TableCell>
-                    <TableCell className="font-medium">{oData.testName || oData.test}</TableCell>
+                    <TableCell className="font-medium">{oData.testName || oData.testType || oData.test}</TableCell>
                     <TableCell className="text-slate-500">{oData.hospitalOrg || oData.hospitalMsp || oData.orderedBy || 'N/A'}</TableCell>
                     <TableCell>
                       {oData.status === 'pending' || oData.status === 'ordered' ? (
@@ -131,7 +131,7 @@ export default function LabDashboard() {
         {selectedOrder && (
           <form onSubmit={handleUpload} className="space-y-4">
              <div className="bg-slate-50 p-4 rounded-lg border border-slate-200 mb-4">
-                <p className="text-sm font-medium"><span className="text-slate-500">Test:</span> {selectedOrder.testName || selectedOrder.test}</p>
+                <p className="text-sm font-medium"><span className="text-slate-500">Test:</span> {selectedOrder.testName || selectedOrder.testType || selectedOrder.test}</p>
                 <p className="text-sm font-medium"><span className="text-slate-500">Order ID:</span> {selectedOrder.orderId || selectedOrder.id}</p>
              </div>
              <div>

@@ -48,8 +48,9 @@ const HospitalController = {
     orderLabTest: async (req, res) => {
         const orgRole = req.headers['x-user-role'] || 'hospitalA';
         try {
-            const { orderId, patientId, testName, priority, comments } = req.body;
-            const result = await FabricService.invoke(orgRole, 'User1', 'orderLabTest', orderId, patientId, testName, priority || 'normal', comments || '');
+            const { orderId, patientId, testName, testType, priority, comments, instructions } = req.body;
+            const resolvedTestName = testName || testType || '';
+            const result = await FabricService.invoke(orgRole, 'User1', 'orderLabTest', orderId, patientId, resolvedTestName, priority || 'normal', comments || instructions || '');
             res.status(201).json({ success: true, message: 'Lab test ordered', data: result });
         } catch (error) {
             res.status(500).json({ success: false, error: error.message });
