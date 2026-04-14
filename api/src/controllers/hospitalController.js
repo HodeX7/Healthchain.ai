@@ -15,8 +15,8 @@ const HospitalController = {
     },
 
     getPatientRecords: async (req, res) => {
+        const { id } = req.params;
         try {
-            const { id } = req.params;
             const result = await FabricService.query(ORG_ROLE, 'User1', 'queryPatientRecords', id);
             res.json({ success: true, data: result });
         } catch (error) {
