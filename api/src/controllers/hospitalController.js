@@ -23,16 +23,12 @@ const HospitalController = {
             const pdcRecords = await FabricService.query(orgRole, 'User1', 'queryPatientRecords', id);
             const allRecords = Array.isArray(pdcRecords) ? pdcRecords : [];
 
-            // Run ALL cross-org queries in parallel for speed
-            const [rxResult, claimsResult, ...labResults] = await Promise.allSettled([
-                // Prescriptions (pharmacy context)
+            // Run prescriptions + claims queries in parallel
+            const [rxResult, claimsResult, auditResult] = await Promise.allSettled([
                 FabricService.query('pharmacy', 'User1', 'viewPrescriptions', ''),
-                // Insurance claims (insurance context)
                 FabricService.query('insurance', 'User1', 'viewClaims', ''),
-                // Lab reports - probe IDs in parallel (only 10, not 50)
-                ...Array.from({length: 10}, (_, i) => 
-                    FabricService.query(orgRole, 'User1', 'getLabReport', `REP${String(i + 1).padStart(3, '0')}`)
-                ),
+                // Fetch patient audit logs to discover lab report IDs
+                FabricService.query('patient', 'User1', 'getAuditLog', id),
             ]);
 
             // Merge prescriptions
@@ -45,12 +41,23 @@ const HospitalController = {
                 allRecords.push(...claimsResult.value.filter(c => c.patientId === id));
             }
 
-            // Merge lab reports
-            for (const lr of labResults) {
-                if (lr.status === 'fulfilled' && lr.value && lr.value.patientId === id) {
-                    const rid = lr.value.reportId;
-                    if (!allRecords.find(r => (r.reportId || r.Record?.reportId) === rid)) {
-                        allRecords.push(lr.value);
+            // Extract lab report IDs from audit logs, then fetch each report in parallel
+            if (auditResult.status === 'fulfilled' && Array.isArray(auditResult.value)) {
+                const reportIds = auditResult.value
+                    .map(log => (log.Record || log))
+                    .filter(log => log.action === 'UPLOAD_LAB_REPORT' && log.reportId)
+                    .map(log => log.reportId);
+                
+                if (reportIds.length > 0) {
+                    const reportResults = await Promise.allSettled(
+                        reportIds.map(rid => FabricService.query(orgRole, 'User1', 'getLabReport', rid))
+                    );
+                    for (const lr of reportResults) {
+                        if (lr.status === 'fulfilled' && lr.value) {
+                            if (!allRecords.find(r => (r.reportId || r.Record?.reportId) === lr.value.reportId)) {
+                                allRecords.push(lr.value);
+                            }
+                        }
                     }
                 }
             }
