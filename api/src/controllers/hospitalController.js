@@ -19,8 +19,44 @@ const HospitalController = {
         const { id } = req.params;
         const orgRole = req.headers['x-user-role'] || 'hospitalA';
         try {
-            const result = await FabricService.query(orgRole, 'User1', 'queryPatientRecords', id);
-            res.json({ success: true, data: result });
+            // 1. Get PDC records (medical records + lab reports)
+            const pdcRecords = await FabricService.query(orgRole, 'User1', 'queryPatientRecords', id);
+            const allRecords = Array.isArray(pdcRecords) ? pdcRecords : [];
+
+            // 2. Get prescriptions from public state (use pharmacy context since viewPrescriptions requires PharmacyOrgMSP)
+            try {
+                const prescriptions = await FabricService.query('pharmacy', 'User1', 'viewPrescriptions', '');
+                if (Array.isArray(prescriptions)) {
+                    const patientRx = prescriptions.filter(rx => rx.patientId === id);
+                    allRecords.push(...patientRx);
+                }
+            } catch (e) {
+                console.log('Could not fetch prescriptions:', e.message);
+            }
+
+            // 3. Get insurance claims from public state (use insurance context since viewClaims requires InsuranceOrgMSP)
+            try {
+                const claims = await FabricService.query('insurance', 'User1', 'viewClaims', '');
+                if (Array.isArray(claims)) {
+                    const patientClaims = claims.filter(c => c.patientId === id);
+                    allRecords.push(...patientClaims);
+                }
+            } catch (e) {
+                console.log('Could not fetch claims:', e.message);
+            }
+
+            // 4. Get lab orders from public state (use lab context since viewLabOrders requires LabOrgMSP)
+            try {
+                const labOrders = await FabricService.query('lab', 'User1', 'viewLabOrders', '');
+                if (Array.isArray(labOrders)) {
+                    const patientOrders = labOrders.filter(o => o.patientId === id);
+                    allRecords.push(...patientOrders);
+                }
+            } catch (e) {
+                console.log('Could not fetch lab orders:', e.message);
+            }
+
+            res.json({ success: true, data: allRecords });
         } catch (error) {
             if (error.message && error.message.includes('No active consent')) {
                  try {

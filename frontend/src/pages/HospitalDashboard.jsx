@@ -224,15 +224,49 @@ export default function HospitalDashboard() {
                       <h4 className="text-xs uppercase font-bold text-slate-400 border-b pb-1">Ledger Records Found: {patientData.records.length}</h4>
                       {patientData.records.map((r, i) => {
                           const rec = r.Record || r;
+                          const docType = (rec.docType || '').toLowerCase();
+                          
+                          // Color coding per doc type
+                          const colorMap = {
+                            medicalrecord: { bar: 'bg-blue-400', badge: 'bg-blue-100 text-blue-700', label: 'CLINICAL NOTE' },
+                            labreport: { bar: 'bg-purple-400', badge: 'bg-purple-100 text-purple-700', label: 'LAB REPORT' },
+                            laborder: { bar: 'bg-violet-400', badge: 'bg-violet-100 text-violet-700', label: 'LAB ORDER' },
+                            prescription: { bar: 'bg-green-400', badge: 'bg-green-100 text-green-700', label: 'PRESCRIPTION' },
+                            insuranceclaim: { bar: 'bg-amber-400', badge: 'bg-amber-100 text-amber-700', label: 'INSURANCE CLAIM' },
+                          };
+                          const style = colorMap[docType] || { bar: 'bg-slate-400', badge: 'bg-slate-100 text-slate-700', label: (rec.docType || 'DOCUMENT').toUpperCase() };
+
+                          // Org tag
+                          const orgTag = rec.hospitalOrg || rec.labOrg || '';
+                          
                           return (
                           <div key={i} className="text-sm border p-3 rounded-lg bg-slate-50 shadow-sm relative overflow-hidden">
-                              <div className="absolute top-0 left-0 w-1 h-full bg-blue-400"></div>
-                              <span className="text-slate-500 mb-1 text-xs font-semibold flex justify-between">
-                                  {rec.docType ? rec.docType.toUpperCase() : 'DOCUMENT'}
-                                  <span>{rec.createdAt ? new Date(rec.createdAt).toLocaleDateString() : (rec.date || 'Unknown')}</span>
+                              <div className={`absolute top-0 left-0 w-1 h-full ${style.bar}`}></div>
+                              <div className="flex items-center justify-between mb-1">
+                                  <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${style.badge}`}>{style.label}</span>
+                                  <span className="text-xs text-slate-400">{rec.createdAt ? new Date(rec.createdAt).toLocaleDateString() : (rec.issuedAt ? new Date(rec.issuedAt).toLocaleDateString() : (rec.submittedAt ? new Date(rec.submittedAt).toLocaleDateString() : (rec.completedAt ? new Date(rec.completedAt).toLocaleDateString() : (rec.orderedAt ? new Date(rec.orderedAt).toLocaleDateString() : 'Unknown'))))}</span>
+                              </div>
+                              
+                              {/* Org Tag */}
+                              {orgTag && (
+                                <span className="inline-block px-2 py-0.5 rounded text-[10px] font-semibold bg-indigo-50 text-indigo-600 mb-1 border border-indigo-100">
+                                  🏥 {orgTag}
+                                </span>
+                              )}
+                              
+                              {/* Main content per type */}
+                              <span className="font-medium text-slate-800 break-words block">
+                                {rec.diagnosis || rec.testType || (rec.medications && `Rx: ${Array.isArray(rec.medications) ? rec.medications.map(m => m.name || m).join(', ') : rec.medications}`) || (rec.procedures && `Claim: ${Array.isArray(rec.procedures) ? rec.procedures.map(p => p.code || p.name || JSON.stringify(p)).join(', ') : rec.procedures}`) || rec.description || 'Data Entry'}
                               </span>
-                              <span className="font-medium text-slate-800 break-words block">{rec.diagnosis || rec.description || rec.testType || rec.medication || 'Data Entry'}</span>
-                              <span className="text-xs text-slate-400 mt-2 block break-all">ID: {rec.recordId || rec.orderId || rec.prescriptionId || rec.claimId || r.Key || 'N/A'}</span>
+                              
+                              {/* Extra details */}
+                              {rec.treatment && <span className="text-xs text-slate-500 block mt-1">Treatment: {rec.treatment}</span>}
+                              {rec.results && <span className="text-xs text-slate-500 block mt-1">Results: {typeof rec.results === 'string' ? rec.results : JSON.stringify(rec.results)}</span>}
+                              {rec.status && <span className={`text-xs font-semibold block mt-1 ${rec.status === 'fulfilled' || rec.status === 'approved' || rec.status === 'completed' ? 'text-green-600' : rec.status === 'denied' ? 'text-red-600' : 'text-amber-600'}`}>Status: {rec.status.toUpperCase()}</span>}
+                              {rec.totalAmount && <span className="text-xs text-slate-500 block mt-1">Amount: ${rec.totalAmount}</span>}
+                              {rec.notes && <span className="text-xs text-slate-500 block mt-1">Notes: {rec.notes}</span>}
+
+                              <span className="text-xs text-slate-400 mt-2 block break-all">ID: {rec.recordId || rec.orderId || rec.prescriptionId || rec.claimId || rec.reportId || r.Key || 'N/A'}</span>
                               {(rec.documentUrl || rec.s3Key) && (
                                 <DocumentViewer documentUrl={rec.documentUrl || rec.s3Key} />
                               )}

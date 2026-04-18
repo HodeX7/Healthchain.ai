@@ -261,31 +261,65 @@ export default function PatientDashboard() {
                 <Table>
                   <TableHeader>
                     <TableHead>Date</TableHead>
-                    <TableHead>Hospital/Provider</TableHead>
-                    <TableHead>Diagnosis / Note</TableHead>
-                    <TableHead>Doctor</TableHead>
+                    <TableHead>Type</TableHead>
+                    <TableHead>Organization</TableHead>
+                    <TableHead>Details</TableHead>
+                    <TableHead>Document</TableHead>
                   </TableHeader>
                   <TableBody>
                     {records.map((r, i) => {
                       const recData = r.Record || r;
+                      const docType = (recData.docType || '').toLowerCase();
+                      
+                      const typeMap = {
+                        medicalrecord: { label: 'Clinical Note', cls: 'bg-blue-100 text-blue-700' },
+                        labreport: { label: 'Lab Report', cls: 'bg-purple-100 text-purple-700' },
+                        laborder: { label: 'Lab Order', cls: 'bg-violet-100 text-violet-700' },
+                        prescription: { label: 'Prescription', cls: 'bg-green-100 text-green-700' },
+                        insuranceclaim: { label: 'Insurance Claim', cls: 'bg-amber-100 text-amber-700' },
+                      };
+                      const typeInfo = typeMap[docType] || { label: recData.docType || 'Record', cls: 'bg-slate-100 text-slate-700' };
+                      
+                      // Determine date
+                      const dateStr = recData.createdAt || recData.issuedAt || recData.submittedAt || recData.completedAt || recData.orderedAt || recData.date;
+                      
+                      // Determine org
+                      const org = recData.hospitalOrg || recData.labOrg || '';
+                      
                       return (
                       <TableRow key={i}>
-                        <TableCell className="text-slate-500">{recData.createdAt ? new Date(recData.createdAt).toLocaleDateString() : (recData.date ? new Date(recData.date).toLocaleDateString() : 'N/A')}</TableCell>
-                        <TableCell className="font-medium text-slate-900">{recData.hospitalOrg ? recData.hospitalOrg.replace('OrgMSP', '') : (recData.hospitalId ? recData.hospitalId.replace('OrgMSP', '') : 'N/A')}</TableCell>
+                        <TableCell className="text-slate-500 text-xs">{dateStr ? new Date(dateStr).toLocaleDateString() : 'N/A'}</TableCell>
                         <TableCell>
-                          {recData.diagnosis || recData.description || 'Record entry'}
-                          {(recData.documentUrl || recData.s3Key) && (
-                            <div className="mt-2">
-                              <DocumentViewer documentUrl={recData.documentUrl || recData.s3Key} />
-                            </div>
+                          <span className={`px-2 py-1 rounded-full text-xs font-bold ${typeInfo.cls}`}>{typeInfo.label}</span>
+                        </TableCell>
+                        <TableCell className="font-medium text-slate-900">
+                          {org ? (
+                            <span className="inline-flex items-center text-xs">
+                              <span className="mr-1">🏥</span> {org.replace('OrgMSP', '')}
+                            </span>
+                          ) : 'N/A'}
+                        </TableCell>
+                        <TableCell>
+                          <div className="space-y-0.5">
+                            <span className="font-medium text-slate-800 block">{recData.diagnosis || recData.testType || (recData.medications && `Rx: ${Array.isArray(recData.medications) ? recData.medications.map(m => m.name || m).join(', ') : recData.medications}`) || (recData.procedures && `Claim: ${Array.isArray(recData.procedures) ? recData.procedures.map(p => p.code || p.name || JSON.stringify(p)).join(', ') : recData.procedures}`) || recData.description || 'Record entry'}</span>
+                            {recData.treatment && <span className="text-xs text-slate-500 block">Treatment: {recData.treatment}</span>}
+                            {recData.results && <span className="text-xs text-slate-500 block">Results: {typeof recData.results === 'string' ? recData.results : JSON.stringify(recData.results)}</span>}
+                            {recData.status && <span className={`text-xs font-semibold block ${recData.status === 'fulfilled' || recData.status === 'approved' || recData.status === 'completed' ? 'text-green-600' : recData.status === 'denied' ? 'text-red-600' : 'text-amber-600'}`}>Status: {recData.status.toUpperCase()}</span>}
+                            {recData.totalAmount && <span className="text-xs text-slate-500 block">Amount: ${recData.totalAmount}</span>}
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          {(recData.documentUrl || recData.s3Key) ? (
+                            <DocumentViewer documentUrl={recData.documentUrl || recData.s3Key} />
+                          ) : (
+                            <span className="text-xs text-slate-400">—</span>
                           )}
                         </TableCell>
-                        <TableCell className="text-slate-500">{recData.createdBy ? ((recData.createdBy.match(/CN=([^:/]+)/) || [])[1] || 'Doctor') : (recData.doctor || 'Unknown')}</TableCell>
                       </TableRow>
                     )})}
                     {records.length === 0 && (
                         <TableRow>
-                            <TableCell colSpan={4} className="text-center py-6 text-slate-500">No medical records found on the ledger.</TableCell>
+                            <TableCell colSpan={5} className="text-center py-6 text-slate-500">No medical records found on the ledger.</TableCell>
                         </TableRow>
                     )}
                   </TableBody>

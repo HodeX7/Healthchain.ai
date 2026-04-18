@@ -50,8 +50,45 @@ const PatientController = {
     getRecords: async (req, res) => {
         try {
             const { id } = req.params;
-            const result = await FabricService.query(ORG_ROLE, 'User1', 'getMyMedicalRecords', id);
-            res.json({ success: true, data: result });
+            
+            // 1. Get PDC records (medical records + lab reports from private data)
+            const pdcRecords = await FabricService.query(ORG_ROLE, 'User1', 'getMyMedicalRecords', id);
+            const allRecords = Array.isArray(pdcRecords) ? pdcRecords : [];
+
+            // 2. Get prescriptions from public state
+            try {
+                const prescriptions = await FabricService.query('pharmacy', 'User1', 'viewPrescriptions', '');
+                if (Array.isArray(prescriptions)) {
+                    const patientRx = prescriptions.filter(rx => rx.patientId === id);
+                    allRecords.push(...patientRx);
+                }
+            } catch (e) {
+                console.log('Could not fetch prescriptions for patient:', e.message);
+            }
+
+            // 3. Get insurance claims from public state
+            try {
+                const claims = await FabricService.query('insurance', 'User1', 'viewClaims', '');
+                if (Array.isArray(claims)) {
+                    const patientClaims = claims.filter(c => c.patientId === id);
+                    allRecords.push(...patientClaims);
+                }
+            } catch (e) {
+                console.log('Could not fetch claims for patient:', e.message);
+            }
+
+            // 4. Get lab orders from public state
+            try {
+                const labOrders = await FabricService.query('lab', 'User1', 'viewLabOrders', '');
+                if (Array.isArray(labOrders)) {
+                    const patientOrders = labOrders.filter(o => o.patientId === id);
+                    allRecords.push(...patientOrders);
+                }
+            } catch (e) {
+                console.log('Could not fetch lab orders for patient:', e.message);
+            }
+
+            res.json({ success: true, data: allRecords });
         } catch (error) {
             res.status(500).json({ success: false, error: error.message });
         }
