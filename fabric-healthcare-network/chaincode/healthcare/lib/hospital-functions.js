@@ -114,13 +114,21 @@ class HospitalFunctions {
       throw new Error(`No active consent for ${callerMSP}`);
     }
 
-    // Get authorized PDCs from consent
-    const authorizedPDCs = consent.authorizedPDCs || [];
-
-    // Always include own PDC
-    const ownPDC = getPDCName('MedicalRecords', callerMSP);
-    if (!authorizedPDCs.includes(ownPDC)) {
-      authorizedPDCs.push(ownPDC);
+    // Get authorized PDCs: Since the hospital has active consent, they have full access
+    // to the shared patient record across ALL hospitals.
+    const { getNetworkMetadata } = require('./utils');
+    const { hospitals } = await getNetworkMetadata(ctx);
+    
+    const authorizedPDCs = [];
+    for (const hospital of hospitals) {
+      const hospitalPDC = getPDCName('MedicalRecords', hospital);
+      if (!authorizedPDCs.includes(hospitalPDC)) {
+        authorizedPDCs.push(hospitalPDC);
+      }
+      const labPDC = getPDCName('LabReports', hospital);
+      if (!authorizedPDCs.includes(labPDC)) {
+        authorizedPDCs.push(labPDC);
+      }
     }
 
     // Query authorized PDCs
