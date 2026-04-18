@@ -249,7 +249,7 @@ class HospitalFunctions {
     return JSON.stringify(order);
   }
 
-  static async issuePrescription(ctx, prescriptionId, patientId, medicationsJSON, diagnosis, validUntil) {
+  static async issuePrescription(ctx, prescriptionId, patientId, medicationsJSON, diagnosis, validUntil, s3Key, fileHash) {
     const callerMSP = ctx.clientIdentity.getMSPID();
 
     // Verify consent
@@ -270,16 +270,30 @@ class HospitalFunctions {
       diagnosis,
       status: 'issued',
       issuedAt: getTimestamp(ctx),
-      validUntil
+      validUntil,
+      s3Key,
+      fileHash
     };
 
     // Store in public state for pharmacy access
     await ctx.stub.putState(prescriptionId, Buffer.from(JSON.stringify(prescription)));
 
+    await createAuditLog(ctx, {
+      action: 'ISSUE_PRESCRIPTION',
+      patientId,
+      prescriptionId,
+      medications,
+      diagnosis,
+      s3Key,
+      fileHash,
+      actor: ctx.clientIdentity.getID(),
+      timestamp: getTimestamp(ctx)
+    });
+
     return JSON.stringify(prescription);
   }
 
-  static async submitInsuranceClaim(ctx, claimId, patientId, treatmentDate, proceduresJSON, totalAmount) {
+  static async submitInsuranceClaim(ctx, claimId, patientId, treatmentDate, proceduresJSON, totalAmount, s3Key, fileHash) {
     const callerMSP = ctx.clientIdentity.getMSPID();
 
     // Verify caller is from a hospital
@@ -304,11 +318,25 @@ class HospitalFunctions {
       procedures,
       totalAmount,
       status: 'submitted',
+      s3Key,
+      fileHash,
       submittedAt: getTimestamp(ctx)
     };
 
     // Store in public state for insurance access
     await ctx.stub.putState(claimId, Buffer.from(JSON.stringify(claim)));
+
+    await createAuditLog(ctx, {
+      action: 'SUBMIT_CLAIM',
+      patientId,
+      claimId,
+      procedures,
+      totalAmount,
+      s3Key,
+      fileHash,
+      actor: ctx.clientIdentity.getID(),
+      timestamp: getTimestamp(ctx)
+    });
 
     // Emit event
     ctx.stub.setEvent('ClaimSubmitted', Buffer.from(JSON.stringify(claim)));

@@ -10,8 +10,8 @@ export FABRIC_CFG_PATH=${NETWORK_DIR}/config
 export ORDERER_CA=${NETWORK_DIR}/organizations/ordererOrganizations/orderer.healthchain.com/orderers/orderer.orderer.healthchain.com/msp/tlscacerts/tlsca.orderer.healthchain.com-cert.pem
 
 CC_NAME="healthchain"
-CC_VERSION="2.4"
-CC_SEQUENCE="4"
+CC_VERSION="2.5"
+CC_SEQUENCE="5"
 CHANNEL_NAME="healthchain-channel"
 CC_PATH="${PROJECT_ROOT}/fabric-healthcare-network/chaincode/healthcare"
 COLLECTIONS_CONFIG="${PROJECT_ROOT}/fabric-healthcare-network/chaincode/healthcare/collections_config.json"

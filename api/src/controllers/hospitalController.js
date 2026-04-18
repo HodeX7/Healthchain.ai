@@ -60,9 +60,9 @@ const HospitalController = {
     issuePrescription: async (req, res) => {
         const orgRole = req.headers['x-user-role'] || 'hospitalA';
         try {
-            const { prescriptionId, patientId, medications, diagnosis, validUntil } = req.body;
+            const { prescriptionId, patientId, medications, diagnosis, validUntil, documentUrl, docHash } = req.body;
             // medications expected as an array of objects
-            const result = await FabricService.invoke(orgRole, 'User1', 'issuePrescription', prescriptionId, patientId, JSON.stringify(medications), diagnosis, validUntil);
+            const result = await FabricService.invoke(orgRole, 'User1', 'issuePrescription', prescriptionId, patientId, JSON.stringify(medications), diagnosis || '', validUntil || '', documentUrl || '', docHash || '');
             res.status(201).json({ success: true, message: 'Prescription issued', data: result });
         } catch (error) {
             res.status(500).json({ success: false, error: error.message });
@@ -72,9 +72,9 @@ const HospitalController = {
     submitInsuranceClaim: async (req, res) => {
         const orgRole = req.headers['x-user-role'] || 'hospitalA';
         try {
-            const { claimId, patientId, serviceDate, procedures, totalAmount } = req.body;
+            const { claimId, patientId, serviceDate, procedures, totalAmount, documentUrl, docHash } = req.body;
             // procedures expected as an array of objects
-            const result = await FabricService.invoke(orgRole, 'User1', 'submitInsuranceClaim', claimId, patientId, serviceDate, JSON.stringify(procedures), String(totalAmount));
+            const result = await FabricService.invoke(orgRole, 'User1', 'submitInsuranceClaim', claimId, patientId, serviceDate, JSON.stringify(procedures), String(totalAmount), documentUrl || '', docHash || '');
             res.status(201).json({ success: true, message: 'Insurance claim submitted', data: result });
         } catch (error) {
             res.status(500).json({ success: false, error: error.message });
