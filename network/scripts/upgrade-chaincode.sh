@@ -48,7 +48,7 @@ installChaincode() {
   export CORE_PEER_LOCALMSPID="${MSP_ID}"
   export CORE_PEER_TLS_ROOTCERT_FILE=${NETWORK_DIR}/organizations/peerOrganizations/${ORG}.healthchain.com/peers/peer0.${ORG}.healthchain.com/tls/ca.crt
   export CORE_PEER_MSPCONFIGPATH=${NETWORK_DIR}/organizations/peerOrganizations/${ORG}.healthchain.com/users/Admin@${ORG}.healthchain.com/msp
-  export CORE_PEER_ADDRESS=localhost:${PORT}
+  export CORE_PEER_ADDRESS=peer0.${ORG}.healthchain.com:${PORT}
   
   peer lifecycle chaincode install ${CC_NAME}_v${CC_VERSION}.tar.gz
   
@@ -76,7 +76,7 @@ export CORE_PEER_TLS_ENABLED=true
 export CORE_PEER_LOCALMSPID="PatientOrgMSP"
 export CORE_PEER_TLS_ROOTCERT_FILE=${NETWORK_DIR}/organizations/peerOrganizations/patient.healthchain.com/peers/peer0.patient.healthchain.com/tls/ca.crt
 export CORE_PEER_MSPCONFIGPATH=${NETWORK_DIR}/organizations/peerOrganizations/patient.healthchain.com/users/Admin@patient.healthchain.com/msp
-export CORE_PEER_ADDRESS=localhost:7051
+export CORE_PEER_ADDRESS=peer0.patient.healthchain.com:7051
 
 peer lifecycle chaincode queryinstalled > installed_v2.txt
 cat installed_v2.txt
@@ -103,10 +103,10 @@ approveChaincode() {
   export CORE_PEER_LOCALMSPID="${MSP_ID}"
   export CORE_PEER_TLS_ROOTCERT_FILE=${NETWORK_DIR}/organizations/peerOrganizations/${ORG}.healthchain.com/peers/peer0.${ORG}.healthchain.com/tls/ca.crt
   export CORE_PEER_MSPCONFIGPATH=${NETWORK_DIR}/organizations/peerOrganizations/${ORG}.healthchain.com/users/Admin@${ORG}.healthchain.com/msp
-  export CORE_PEER_ADDRESS=localhost:${PORT}
+  export CORE_PEER_ADDRESS=peer0.${ORG}.healthchain.com:${PORT}
   
   peer lifecycle chaincode approveformyorg \
-    -o localhost:7050 \
+    -o orderer.orderer.healthchain.com:7050 \
     --ordererTLSHostnameOverride orderer.orderer.healthchain.com \
     --tls \
     --cafile ${ORDERER_CA} \
@@ -143,14 +143,18 @@ peer lifecycle chaincode checkcommitreadiness \
   --version ${CC_VERSION} \
   --sequence ${CC_SEQUENCE} \
   --collections-config ${COLLECTIONS_CONFIG} \
-  --output json
+  --output json \
+  -o orderer.orderer.healthchain.com:7050 \
+  --ordererTLSHostnameOverride orderer.orderer.healthchain.com \
+  --tls \
+  --cafile ${ORDERER_CA}
 
 echo ""
 
 # Step 6: Commit chaincode
 echo "Step 6: Committing chaincode..."
 peer lifecycle chaincode commit \
-  -o localhost:7050 \
+  -o orderer.orderer.healthchain.com:7050 \
   --ordererTLSHostnameOverride orderer.orderer.healthchain.com \
   --tls \
   --cafile ${ORDERER_CA} \
@@ -159,17 +163,17 @@ peer lifecycle chaincode commit \
   --version ${CC_VERSION} \
   --sequence ${CC_SEQUENCE} \
   --collections-config ${COLLECTIONS_CONFIG} \
-  --peerAddresses localhost:7051 \
+  --peerAddresses peer0.patient.healthchain.com:7051 \
   --tlsRootCertFiles ${NETWORK_DIR}/organizations/peerOrganizations/patient.healthchain.com/peers/peer0.patient.healthchain.com/tls/ca.crt \
-  --peerAddresses localhost:8051 \
+  --peerAddresses peer0.hospitalA.healthchain.com:8051 \
   --tlsRootCertFiles ${NETWORK_DIR}/organizations/peerOrganizations/hospitalA.healthchain.com/peers/peer0.hospitalA.healthchain.com/tls/ca.crt \
-  --peerAddresses localhost:9051 \
+  --peerAddresses peer0.hospitalB.healthchain.com:9051 \
   --tlsRootCertFiles ${NETWORK_DIR}/organizations/peerOrganizations/hospitalB.healthchain.com/peers/peer0.hospitalB.healthchain.com/tls/ca.crt \
-  --peerAddresses localhost:10051 \
+  --peerAddresses peer0.lab.healthchain.com:10051 \
   --tlsRootCertFiles ${NETWORK_DIR}/organizations/peerOrganizations/lab.healthchain.com/peers/peer0.lab.healthchain.com/tls/ca.crt \
-  --peerAddresses localhost:11051 \
+  --peerAddresses peer0.pharmacy.healthchain.com:11051 \
   --tlsRootCertFiles ${NETWORK_DIR}/organizations/peerOrganizations/pharmacy.healthchain.com/peers/peer0.pharmacy.healthchain.com/tls/ca.crt \
-  --peerAddresses localhost:12051 \
+  --peerAddresses peer0.insurance.healthchain.com:12051 \
   --tlsRootCertFiles ${NETWORK_DIR}/organizations/peerOrganizations/insurance.healthchain.com/peers/peer0.insurance.healthchain.com/tls/ca.crt
 
 if [ $? -ne 0 ]; then
