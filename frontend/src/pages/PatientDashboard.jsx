@@ -369,6 +369,7 @@ export default function PatientDashboard() {
                       <TableHead>Timestamp</TableHead>
                       <TableHead>Action Taken</TableHead>
                       <TableHead>Accessor Organization</TableHead>
+                      <TableHead>Additional Details</TableHead>
                     </TableHeader>
                     <TableBody>
                       {auditLogs.map((log, i) => {
@@ -384,11 +385,32 @@ export default function PatientDashboard() {
                           <TableCell className="font-medium text-slate-700">
                             {getActorOrg(logData)}
                           </TableCell>
+                          <TableCell className="text-sm">
+                            <div className="space-y-1">
+                                {logData.hospitalOrg && <p><span className="font-semibold text-slate-500">Hospital:</span> {logData.hospitalOrg}</p>}
+                                {logData.recordType && <p><span className="font-semibold text-slate-500">Record Type:</span> {logData.recordType}</p>}
+                                {logData.diagnosis && <p><span className="font-semibold text-slate-500">Diagnosis:</span> {logData.diagnosis}</p>}
+                                {logData.treatment && <p><span className="font-semibold text-slate-500">Treatment:</span> {logData.treatment}</p>}
+                                {logData.notes && <p><span className="font-semibold text-slate-500">Notes:</span> {logData.notes}</p>}
+                                {logData.testType && <p><span className="font-semibold text-slate-500">Test:</span> {logData.testType}</p>}
+                                {logData.results && <p><span className="font-semibold text-slate-500">Results:</span> {typeof logData.results === 'string' ? logData.results : JSON.stringify(logData.results)}</p>}
+                                {logData.medications && <p><span className="font-semibold text-slate-500">Medications:</span> {Array.isArray(logData.medications) ? logData.medications.map(m=>m.medicationInfo?.name || m.name || m).join(', ') : JSON.stringify(logData.medications)}</p>}
+                                {logData.procedures && <p><span className="font-semibold text-slate-500">Procedures:</span> {Array.isArray(logData.procedures) ? logData.procedures.map(p=>p.name || (typeof p === 'string' ? p : JSON.stringify(p))).join(', ') : JSON.stringify(logData.procedures)}</p>}
+                                {logData.approvedAmount && <p><span className="font-semibold text-green-600">Approved:</span> ${logData.approvedAmount}</p>}
+                                {logData.totalAmount && <p><span className="font-semibold text-slate-500">Total Claim:</span> ${logData.totalAmount}</p>}
+                                {logData.denialReason && <p><span className="font-semibold text-red-500">Denial Reason:</span> {logData.denialReason}</p>}
+                                {logData.s3Key && (
+                                  <div className="mt-2">
+                                     <DocumentViewer documentUrl={logData.s3Key} />
+                                  </div>
+                                )}
+                            </div>
+                          </TableCell>
                         </TableRow>
                       )})}
                       {auditLogs.length === 0 && (
                           <TableRow>
-                              <TableCell colSpan={3} className="text-center py-6 text-slate-500">No audit logs found.</TableCell>
+                              <TableCell colSpan={4} className="text-center py-6 text-slate-500">No audit logs found.</TableCell>
                           </TableRow>
                       )}
                     </TableBody>

@@ -98,6 +98,12 @@ class HospitalFunctions {
       patientId,
       recordId,
       hospitalOrg: callerMSP,
+      recordType,
+      diagnosis,
+      treatment,
+      notes,
+      s3Key,
+      fileHash,
       actor: ctx.clientIdentity.getID(),
       timestamp: getTimestamp(ctx)
     });
