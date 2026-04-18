@@ -1,11 +1,19 @@
 const FabricService = require('../services/fabricService');
 
-// Role context for gateway (Usually from JWT, hardcoded for HospitalA here for simplicity, but in a real app would be dynamic based on the logged-in hospital user)
+// Role context for gateway
 const ORG_ROLE = 'hospitalA';
+
+// Hospital routes must always use a hospital identity, never patient/lab/pharmacy/insurance
+function getHospitalRole(req) {
+    const role = (req.headers['x-user-role'] || 'hospitalA').toLowerCase();
+    // Only allow hospital roles; default to hospitalA for anything else
+    if (role.startsWith('hospital')) return role;
+    return ORG_ROLE;
+}
 
 const HospitalController = {
     requestAccess: async (req, res) => {
-        const orgRole = req.headers['x-user-role'] || 'hospitalA';
+        const orgRole = getHospitalRole(req);
         try {
             const { patientId } = req.body;
             const result = await FabricService.invoke(orgRole, 'User1', 'requestAccess', patientId);
@@ -17,7 +25,7 @@ const HospitalController = {
 
     getPatientRecords: async (req, res) => {
         const { id } = req.params;
-        const orgRole = req.headers['x-user-role'] || 'hospitalA';
+        const orgRole = getHospitalRole(req);
         try {
             // 1. Get PDC records (medical records + lab reports)
             const pdcRecords = await FabricService.query(orgRole, 'User1', 'queryPatientRecords', id);
@@ -77,7 +85,7 @@ const HospitalController = {
     },
 
     createMedicalRecord: async (req, res) => {
-        const orgRole = req.headers['x-user-role'] || 'hospitalA';
+        const orgRole = getHospitalRole(req);
         try {
             const { recordId, patientId, recordType, diagnosis, treatment, notes, documentUrl, docHash } = req.body;
             const result = await FabricService.invoke(orgRole, 'User1', 'createMedicalRecord', recordId || '', patientId || '', recordType || '', diagnosis || '', treatment || '', notes || '', documentUrl || '', docHash || '');
@@ -88,7 +96,7 @@ const HospitalController = {
     },
 
     orderLabTest: async (req, res) => {
-        const orgRole = req.headers['x-user-role'] || 'hospitalA';
+        const orgRole = getHospitalRole(req);
         try {
             const { orderId, patientId, testName, testType, priority, comments, instructions } = req.body;
             const resolvedTestName = testName || testType || '';
@@ -100,7 +108,7 @@ const HospitalController = {
     },
 
     issuePrescription: async (req, res) => {
-        const orgRole = req.headers['x-user-role'] || 'hospitalA';
+        const orgRole = getHospitalRole(req);
         try {
             const { prescriptionId, patientId, medications, diagnosis, validUntil } = req.body;
             // medications expected as an array of objects
@@ -112,7 +120,7 @@ const HospitalController = {
     },
 
     submitInsuranceClaim: async (req, res) => {
-        const orgRole = req.headers['x-user-role'] || 'hospitalA';
+        const orgRole = getHospitalRole(req);
         try {
             const { claimId, patientId, serviceDate, procedures, totalAmount } = req.body;
             // procedures expected as an array of objects
