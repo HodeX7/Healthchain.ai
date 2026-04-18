@@ -23,47 +23,36 @@ const HospitalController = {
             const pdcRecords = await FabricService.query(orgRole, 'User1', 'queryPatientRecords', id);
             const allRecords = Array.isArray(pdcRecords) ? pdcRecords : [];
 
-            // 2. Get prescriptions from public state (use pharmacy context since viewPrescriptions requires PharmacyOrgMSP)
-            try {
-                const prescriptions = await FabricService.query('pharmacy', 'User1', 'viewPrescriptions', '');
-                if (Array.isArray(prescriptions)) {
-                    const patientRx = prescriptions.filter(rx => rx.patientId === id);
-                    allRecords.push(...patientRx);
-                }
-            } catch (e) {
-                console.log('Could not fetch prescriptions:', e.message);
+            // Run ALL cross-org queries in parallel for speed
+            const [rxResult, claimsResult, ...labResults] = await Promise.allSettled([
+                // Prescriptions (pharmacy context)
+                FabricService.query('pharmacy', 'User1', 'viewPrescriptions', ''),
+                // Insurance claims (insurance context)
+                FabricService.query('insurance', 'User1', 'viewClaims', ''),
+                // Lab reports - probe IDs in parallel (only 10, not 50)
+                ...Array.from({length: 10}, (_, i) => 
+                    FabricService.query(orgRole, 'User1', 'getLabReport', `REP${String(i + 1).padStart(3, '0')}`)
+                ),
+            ]);
+
+            // Merge prescriptions
+            if (rxResult.status === 'fulfilled' && Array.isArray(rxResult.value)) {
+                allRecords.push(...rxResult.value.filter(rx => rx.patientId === id));
             }
 
-            // 3. Get insurance claims from public state (use insurance context since viewClaims requires InsuranceOrgMSP)
-            try {
-                const claims = await FabricService.query('insurance', 'User1', 'viewClaims', '');
-                if (Array.isArray(claims)) {
-                    const patientClaims = claims.filter(c => c.patientId === id);
-                    allRecords.push(...patientClaims);
-                }
-            } catch (e) {
-                console.log('Could not fetch claims:', e.message);
+            // Merge claims
+            if (claimsResult.status === 'fulfilled' && Array.isArray(claimsResult.value)) {
+                allRecords.push(...claimsResult.value.filter(c => c.patientId === id));
             }
 
-            // 4. Probe for lab reports directly (getLabReport has no MSP restriction)
-            // Lab reports are in PDCs - the CouchDB query often misses them, so probe by ID
-            try {
-                for (let i = 1; i <= 50; i++) {
-                    const reportId = `REP${String(i).padStart(3, '0')}`;
-                    try {
-                        const report = await FabricService.query(orgRole, 'User1', 'getLabReport', reportId);
-                        if (report && report.patientId === id) {
-                            // Avoid duplicates
-                            if (!allRecords.find(r => (r.reportId || r.Record?.reportId) === reportId)) {
-                                allRecords.push(report);
-                            }
-                        }
-                    } catch (e) {
-                        // Report doesn't exist, continue
+            // Merge lab reports
+            for (const lr of labResults) {
+                if (lr.status === 'fulfilled' && lr.value && lr.value.patientId === id) {
+                    const rid = lr.value.reportId;
+                    if (!allRecords.find(r => (r.reportId || r.Record?.reportId) === rid)) {
+                        allRecords.push(lr.value);
                     }
                 }
-            } catch (e) {
-                console.log('Could not probe lab reports:', e.message);
             }
 
             res.json({ success: true, data: allRecords });
