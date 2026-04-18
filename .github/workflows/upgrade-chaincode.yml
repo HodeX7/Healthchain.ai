@@ -1,0 +1,31 @@
+name: Upgrade HealthChain Chaincode
+
+on:
+  workflow_dispatch:
+
+jobs:
+  upgrade:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Upgrade Chaincode securely via SSH
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.VM_HOST_IP }}
+          username: ${{ secrets.VM_SSH_USERNAME }}
+          key: ${{ secrets.VM_SSH_PRIVATE_KEY }}
+          script: |
+            if [ ! -d "Healthchain.ai" ]; then
+              git clone https://github.com/HodeX7/Healthchain.ai.git
+            fi
+            
+            cd Healthchain.ai
+            git fetch origin
+            git checkout backend
+            git reset --hard origin/backend
+            
+            echo "Starting Chaincode Upgrade on Producer Node..."
+            chmod +x ./network/scripts/upgrade-chaincode.sh
+            ./network/scripts/upgrade-chaincode.sh
+            
+            echo "✅ Chaincode Successfully Upgraded."
