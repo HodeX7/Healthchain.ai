@@ -249,7 +249,7 @@ class HospitalFunctions {
     return JSON.stringify(order);
   }
 
-  static async issuePrescription(ctx, prescriptionId, patientId, medicationsJSON, diagnosis, validUntil, s3Key, fileHash) {
+  static async issuePrescription(ctx, prescriptionId, patientId, medicationsJSON, diagnosis, validUntil) {
     const callerMSP = ctx.clientIdentity.getMSPID();
 
     // Verify consent
@@ -270,9 +270,7 @@ class HospitalFunctions {
       diagnosis,
       status: 'issued',
       issuedAt: getTimestamp(ctx),
-      validUntil,
-      s3Key,
-      fileHash
+      validUntil
     };
 
     // Store in public state for pharmacy access
@@ -284,8 +282,6 @@ class HospitalFunctions {
       prescriptionId,
       medications,
       diagnosis,
-      s3Key,
-      fileHash,
       actor: ctx.clientIdentity.getID(),
       timestamp: getTimestamp(ctx)
     });
@@ -293,7 +289,7 @@ class HospitalFunctions {
     return JSON.stringify(prescription);
   }
 
-  static async submitInsuranceClaim(ctx, claimId, patientId, treatmentDate, proceduresJSON, totalAmount, s3Key, fileHash) {
+  static async submitInsuranceClaim(ctx, claimId, patientId, treatmentDate, proceduresJSON, totalAmount) {
     const callerMSP = ctx.clientIdentity.getMSPID();
 
     // Verify caller is from a hospital
@@ -318,8 +314,6 @@ class HospitalFunctions {
       procedures,
       totalAmount,
       status: 'submitted',
-      s3Key,
-      fileHash,
       submittedAt: getTimestamp(ctx)
     };
 
@@ -332,8 +326,6 @@ class HospitalFunctions {
       claimId,
       procedures,
       totalAmount,
-      s3Key,
-      fileHash,
       actor: ctx.clientIdentity.getID(),
       timestamp: getTimestamp(ctx)
     });

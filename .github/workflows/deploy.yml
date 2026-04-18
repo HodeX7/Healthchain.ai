@@ -29,9 +29,6 @@ jobs:
             git checkout backend
             git reset --hard origin/backend
             
-            echo "Starting Chaincode Upgrade..."
-            chmod +x ./network/scripts/upgrade-chaincode.sh
-            ./network/scripts/upgrade-chaincode.sh
             
             cd api
             npm install
