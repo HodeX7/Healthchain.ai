@@ -80,9 +80,15 @@ export default function PharmacyDashboard() {
                   </TableRow>
                 ) : prescriptions.map((rx) => {
                   const rxData = rx.Record || rx;
-                  const meds = Array.isArray(rxData.medications) ? rxData.medications[0] : rxData.medications;
-                  const drugName = rxData.drug || (meds?.name);
-                  const instructions = rxData.instructions || (meds?.dosage) || (meds?.instructions);
+                  const meds = Array.isArray(rxData.medications) ? rxData.medications.filter(m => m.name) : (rxData.medications ? [rxData.medications] : []);
+                  const drugName = rxData.drug || (meds[0]?.name);
+                  const instructions = rxData.instructions || (meds[0]?.dosage) || (meds[0]?.instructions);
+                  // Extract embedded documentUrl from medications array
+                  let rxDocUrl = rxData.documentUrl || rxData.s3Key || '';
+                  if (!rxDocUrl && Array.isArray(rxData.medications)) {
+                    const docEntry = rxData.medications.find(m => m.documentUrl);
+                    if (docEntry) rxDocUrl = docEntry.documentUrl;
+                  }
                   return (
                   <TableRow key={rxData.prescriptionId || rx.Key}>
                     <TableCell className="font-mono text-sm font-medium text-slate-700">{rxData.prescriptionId || rx.Key}</TableCell>
@@ -90,9 +96,9 @@ export default function PharmacyDashboard() {
                     <TableCell className="font-medium text-slate-900">
                        {drugName}
                        <div className="text-xs text-slate-500 truncate w-48">{instructions}</div>
-                       {(rxData.documentUrl || rxData.s3Key) && (
+                       {rxDocUrl && (
                          <div className="mt-1">
-                           <DocumentViewer documentUrl={rxData.documentUrl || rxData.s3Key} />
+                           <DocumentViewer documentUrl={rxDocUrl} />
                          </div>
                        )}
                     </TableCell>

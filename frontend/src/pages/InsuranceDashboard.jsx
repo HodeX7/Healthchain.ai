@@ -75,6 +75,12 @@ export default function InsuranceDashboard() {
                       const cData = claim.Record || claim;
                       const serviceDesc = Array.isArray(cData.procedures) ? (cData.procedures[0]?.description || cData.procedures[0]?.code) : (cData.service || 'Medical Service');
                       const claimDate = cData.timestamp ? new Date(cData.timestamp).toLocaleDateString() : cData.date;
+                      // Extract embedded documentUrl from procedures array
+                      let claimDocUrl = cData.documentUrl || cData.s3Key || '';
+                      if (!claimDocUrl && Array.isArray(cData.procedures)) {
+                        const docEntry = cData.procedures.find(p => p.documentUrl);
+                        if (docEntry) claimDocUrl = docEntry.documentUrl;
+                      }
                       return (
                       <TableRow key={cData.claimId || claim.Key}>
                         <TableCell>
@@ -88,9 +94,9 @@ export default function InsuranceDashboard() {
                         <TableCell>
                           <div className="font-medium text-slate-900">{serviceDesc}</div>
                           <div className="text-sm font-semibold text-emerald-600">${cData.totalAmount || cData.amount}</div>
-                          {(cData.documentUrl || cData.s3Key) && (
+                          {claimDocUrl && (
                             <div className="mt-1">
-                              <DocumentViewer documentUrl={cData.documentUrl || cData.s3Key} />
+                              <DocumentViewer documentUrl={claimDocUrl} />
                             </div>
                           )}
                         </TableCell>
