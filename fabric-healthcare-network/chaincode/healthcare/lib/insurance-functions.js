@@ -56,6 +56,9 @@ class InsuranceFunctions {
       claimId,
       patientId: claim.patientId,
       approvedAmount: claim.approvedAmount,
+      procedures: claim.procedures,
+      totalAmount: claim.totalAmount,
+      notes: claim.notes,
       actor: ctx.clientIdentity.getID(),
       timestamp: timestamp
     });
@@ -97,6 +100,8 @@ class InsuranceFunctions {
       claimId,
       patientId: claim.patientId,
       denialReason: reason,
+      procedures: claim.procedures,
+      totalAmount: claim.totalAmount,
       actor: ctx.clientIdentity.getID(),
       timestamp: timestamp
     });

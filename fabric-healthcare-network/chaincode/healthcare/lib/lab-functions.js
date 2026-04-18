@@ -60,6 +60,10 @@ class LabFunctions {
       action: 'UPLOAD_LAB_REPORT',
       patientId,
       reportId,
+      testType,
+      results,
+      s3Key,
+      fileHash,
       actor: ctx.clientIdentity.getID(),
       timestamp: getTimestamp(ctx)
     });

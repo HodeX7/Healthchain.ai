@@ -62,6 +62,8 @@ class PharmacyFunctions {
       action: 'FULFILL_PRESCRIPTION',
       prescriptionId,
       patientId: prescription.patientId,
+      medications: prescription.medications,
+      diagnosis: prescription.diagnosis,
       actor: ctx.clientIdentity.getID(),
       timestamp: getTimestamp(ctx)
     });
