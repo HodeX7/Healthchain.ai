@@ -5,9 +5,9 @@ const ORG_ROLE = 'hospitalA';
 
 // Hospital routes must always use a hospital identity, never patient/lab/pharmacy/insurance
 function getHospitalRole(req) {
-    const role = (req.headers['x-user-role'] || 'hospitalA').toLowerCase();
+    const role = req.headers['x-user-role'] || 'hospitalA';
     // Only allow hospital roles; default to hospitalA for anything else
-    if (role.startsWith('hospital')) return role;
+    if (role.toLowerCase().startsWith('hospital')) return role;
     return ORG_ROLE;
 }
 
