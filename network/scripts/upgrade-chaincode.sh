@@ -11,7 +11,7 @@ export ORDERER_CA=${NETWORK_DIR}/organizations/ordererOrganizations/orderer.heal
 
 CC_NAME="healthchain"
 CC_VERSION="2.5"
-CC_SEQUENCE="5"
+CC_SEQUENCE="3"
 CHANNEL_NAME="healthchain-channel"
 CC_PATH="${PROJECT_ROOT}/fabric-healthcare-network/chaincode/healthcare"
 COLLECTIONS_CONFIG="${PROJECT_ROOT}/fabric-healthcare-network/chaincode/healthcare/collections_config.json"
