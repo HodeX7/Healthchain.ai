@@ -106,12 +106,12 @@ export default function HospitalDashboard() {
               break;
           case 'prescription':
               dataPayload.prescriptionId = getNextId('RX', activePatientId);
-              // Medications assumed to be formatted string or JSON list depending on frontend form:
-              dataPayload.medications = [{ name: formData.medication, dosage: formData.dosage }];
+              // Embed documentUrl inside medications JSON since chaincode stores it as-is
+              dataPayload.medications = [{ name: formData.medication, dosage: formData.dosage, documentUrl: formData.documentUrl || '' }];
               await HospitalService.issuePrescription(dataPayload);
               break;
           case 'claim':
-              dataPayload.procedures = [{ code: formData.serviceDetails, cost: formData.amount }];
+              dataPayload.procedures = [{ code: formData.serviceDetails, cost: formData.amount, documentUrl: formData.documentUrl || '' }];
               dataPayload.claimId = getNextId('CLM', activePatientId);
               dataPayload.serviceDate = new Date().toISOString().split('T')[0];
               dataPayload.totalAmount = formData.amount;
@@ -221,9 +221,14 @@ export default function HospitalDashboard() {
                     </div>
                   </div>
                   <div className="space-y-3 mt-6">
-                      <h4 className="text-xs uppercase font-bold text-slate-400 border-b pb-1">Ledger Records Found: {patientData.records.length}</h4>
-                      {patientData.records.map((r, i) => {
-                          const rec = r.Record || r;
+                      <h4 className="text-xs uppercase font-bold text-slate-400 border-b pb-1">Patient Timeline: {patientData.records.length} records</h4>
+                      {[...patientData.records]
+                        .map(r => r.Record || r)
+                        .sort((a, b) => {
+                          const getTime = (r) => new Date(r.createdAt || r.issuedAt || r.submittedAt || r.completedAt || r.orderedAt || 0).getTime();
+                          return getTime(b) - getTime(a);
+                        })
+                        .map((rec, i) => {
                           const docType = (rec.docType || '').toLowerCase();
                           
                           // Color coding per doc type
@@ -239,12 +244,26 @@ export default function HospitalDashboard() {
                           // Org tag
                           const orgTag = rec.hospitalOrg || rec.labOrg || '';
                           
+                          // Extract embedded documentUrl from medications or procedures arrays
+                          let embeddedDocUrl = rec.documentUrl || rec.s3Key || '';
+                          if (!embeddedDocUrl && Array.isArray(rec.medications)) {
+                            const docEntry = rec.medications.find(m => m.documentUrl);
+                            if (docEntry) embeddedDocUrl = docEntry.documentUrl;
+                          }
+                          if (!embeddedDocUrl && Array.isArray(rec.procedures)) {
+                            const docEntry = rec.procedures.find(p => p.documentUrl);
+                            if (docEntry) embeddedDocUrl = docEntry.documentUrl;
+                          }
+                          
+                          // Date display
+                          const dateStr = rec.createdAt || rec.issuedAt || rec.submittedAt || rec.completedAt || rec.orderedAt;
+                          
                           return (
                           <div key={i} className="text-sm border p-3 rounded-lg bg-slate-50 shadow-sm relative overflow-hidden">
                               <div className={`absolute top-0 left-0 w-1 h-full ${style.bar}`}></div>
                               <div className="flex items-center justify-between mb-1">
                                   <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${style.badge}`}>{style.label}</span>
-                                  <span className="text-xs text-slate-400">{rec.createdAt ? new Date(rec.createdAt).toLocaleDateString() : (rec.issuedAt ? new Date(rec.issuedAt).toLocaleDateString() : (rec.submittedAt ? new Date(rec.submittedAt).toLocaleDateString() : (rec.completedAt ? new Date(rec.completedAt).toLocaleDateString() : (rec.orderedAt ? new Date(rec.orderedAt).toLocaleDateString() : 'Unknown'))))}</span>
+                                  <span className="text-xs text-slate-400">{dateStr ? new Date(dateStr).toLocaleString() : 'Unknown'}</span>
                               </div>
                               
                               {/* Org Tag */}
@@ -256,7 +275,7 @@ export default function HospitalDashboard() {
                               
                               {/* Main content per type */}
                               <span className="font-medium text-slate-800 break-words block">
-                                {rec.diagnosis || rec.testType || (rec.medications && `Rx: ${Array.isArray(rec.medications) ? rec.medications.map(m => m.name || m).join(', ') : rec.medications}`) || (rec.procedures && `Claim: ${Array.isArray(rec.procedures) ? rec.procedures.map(p => p.code || p.name || JSON.stringify(p)).join(', ') : rec.procedures}`) || rec.description || 'Data Entry'}
+                                {rec.diagnosis || rec.testType || (rec.medications && `Rx: ${Array.isArray(rec.medications) ? rec.medications.filter(m => m.name).map(m => `${m.name}${m.dosage ? ' — ' + m.dosage : ''}`).join(', ') : rec.medications}`) || (rec.procedures && `Claim: ${Array.isArray(rec.procedures) ? rec.procedures.filter(p => p.code).map(p => p.code || p.name || JSON.stringify(p)).join(', ') : rec.procedures}`) || rec.description || 'Data Entry'}
                               </span>
                               
                               {/* Extra details */}
@@ -266,9 +285,9 @@ export default function HospitalDashboard() {
                               {rec.totalAmount && <span className="text-xs text-slate-500 block mt-1">Amount: ${rec.totalAmount}</span>}
                               {rec.notes && <span className="text-xs text-slate-500 block mt-1">Notes: {rec.notes}</span>}
 
-                              <span className="text-xs text-slate-400 mt-2 block break-all">ID: {rec.recordId || rec.orderId || rec.prescriptionId || rec.claimId || rec.reportId || r.Key || 'N/A'}</span>
-                              {(rec.documentUrl || rec.s3Key) && (
-                                <DocumentViewer documentUrl={rec.documentUrl || rec.s3Key} />
+                              <span className="text-xs text-slate-400 mt-2 block break-all">ID: {rec.recordId || rec.orderId || rec.prescriptionId || rec.claimId || rec.reportId || 'N/A'}</span>
+                              {embeddedDocUrl && (
+                                <DocumentViewer documentUrl={embeddedDocUrl} />
                               )}
                           </div>
                       )})}

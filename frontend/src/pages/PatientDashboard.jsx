@@ -267,8 +267,13 @@ export default function PatientDashboard() {
                     <TableHead>Document</TableHead>
                   </TableHeader>
                   <TableBody>
-                    {records.map((r, i) => {
-                      const recData = r.Record || r;
+                    {[...records]
+                      .map(r => r.Record || r)
+                      .sort((a, b) => {
+                        const getTime = (r) => new Date(r.createdAt || r.issuedAt || r.submittedAt || r.completedAt || r.orderedAt || 0).getTime();
+                        return getTime(b) - getTime(a);
+                      })
+                      .map((recData, i) => {
                       const docType = (recData.docType || '').toLowerCase();
                       
                       const typeMap = {
@@ -286,9 +291,20 @@ export default function PatientDashboard() {
                       // Determine org
                       const org = recData.hospitalOrg || recData.labOrg || '';
                       
+                      // Extract embedded documentUrl from medications or procedures arrays
+                      let embeddedDocUrl = recData.documentUrl || recData.s3Key || '';
+                      if (!embeddedDocUrl && Array.isArray(recData.medications)) {
+                        const docEntry = recData.medications.find(m => m.documentUrl);
+                        if (docEntry) embeddedDocUrl = docEntry.documentUrl;
+                      }
+                      if (!embeddedDocUrl && Array.isArray(recData.procedures)) {
+                        const docEntry = recData.procedures.find(p => p.documentUrl);
+                        if (docEntry) embeddedDocUrl = docEntry.documentUrl;
+                      }
+                      
                       return (
                       <TableRow key={i}>
-                        <TableCell className="text-slate-500 text-xs">{dateStr ? new Date(dateStr).toLocaleDateString() : 'N/A'}</TableCell>
+                        <TableCell className="text-slate-500 text-xs">{dateStr ? new Date(dateStr).toLocaleString() : 'N/A'}</TableCell>
                         <TableCell>
                           <span className={`px-2 py-1 rounded-full text-xs font-bold ${typeInfo.cls}`}>{typeInfo.label}</span>
                         </TableCell>
@@ -301,7 +317,7 @@ export default function PatientDashboard() {
                         </TableCell>
                         <TableCell>
                           <div className="space-y-0.5">
-                            <span className="font-medium text-slate-800 block">{recData.diagnosis || recData.testType || (recData.medications && `Rx: ${Array.isArray(recData.medications) ? recData.medications.map(m => m.name || m).join(', ') : recData.medications}`) || (recData.procedures && `Claim: ${Array.isArray(recData.procedures) ? recData.procedures.map(p => p.code || p.name || JSON.stringify(p)).join(', ') : recData.procedures}`) || recData.description || 'Record entry'}</span>
+                            <span className="font-medium text-slate-800 block">{recData.diagnosis || recData.testType || (recData.medications && `Rx: ${Array.isArray(recData.medications) ? recData.medications.filter(m => m.name).map(m => `${m.name}${m.dosage ? ' — ' + m.dosage : ''}`).join(', ') : recData.medications}`) || (recData.procedures && `Claim: ${Array.isArray(recData.procedures) ? recData.procedures.filter(p => p.code).map(p => p.code || p.name || JSON.stringify(p)).join(', ') : recData.procedures}`) || recData.description || 'Record entry'}</span>
                             {recData.treatment && <span className="text-xs text-slate-500 block">Treatment: {recData.treatment}</span>}
                             {recData.results && <span className="text-xs text-slate-500 block">Results: {typeof recData.results === 'string' ? recData.results : JSON.stringify(recData.results)}</span>}
                             {recData.status && <span className={`text-xs font-semibold block ${recData.status === 'fulfilled' || recData.status === 'approved' || recData.status === 'completed' ? 'text-green-600' : recData.status === 'denied' ? 'text-red-600' : 'text-amber-600'}`}>Status: {recData.status.toUpperCase()}</span>}
@@ -309,8 +325,8 @@ export default function PatientDashboard() {
                           </div>
                         </TableCell>
                         <TableCell>
-                          {(recData.documentUrl || recData.s3Key) ? (
-                            <DocumentViewer documentUrl={recData.documentUrl || recData.s3Key} />
+                          {embeddedDocUrl ? (
+                            <DocumentViewer documentUrl={embeddedDocUrl} />
                           ) : (
                             <span className="text-xs text-slate-400">—</span>
                           )}
@@ -436,6 +452,17 @@ export default function PatientDashboard() {
                                 {logData.s3Key && (
                                   <div className="mt-2">
                                      <DocumentViewer documentUrl={logData.s3Key} />
+                                  </div>
+                                )}
+                                {/* Extract embedded documentUrl from medications/procedures in audit logs */}
+                                {!logData.s3Key && Array.isArray(logData.medications) && logData.medications.find(m => m.documentUrl) && (
+                                  <div className="mt-2">
+                                     <DocumentViewer documentUrl={logData.medications.find(m => m.documentUrl).documentUrl} />
+                                  </div>
+                                )}
+                                {!logData.s3Key && Array.isArray(logData.procedures) && logData.procedures.find(p => p.documentUrl) && (
+                                  <div className="mt-2">
+                                     <DocumentViewer documentUrl={logData.procedures.find(p => p.documentUrl).documentUrl} />
                                   </div>
                                 )}
                             </div>
