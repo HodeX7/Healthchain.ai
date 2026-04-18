@@ -45,15 +45,25 @@ const HospitalController = {
                 console.log('Could not fetch claims:', e.message);
             }
 
-            // 4. Get lab orders from public state (use lab context since viewLabOrders requires LabOrgMSP)
+            // 4. Probe for lab reports directly (getLabReport has no MSP restriction)
+            // Lab reports are in PDCs - the CouchDB query often misses them, so probe by ID
             try {
-                const labOrders = await FabricService.query('lab', 'User1', 'viewLabOrders', '');
-                if (Array.isArray(labOrders)) {
-                    const patientOrders = labOrders.filter(o => o.patientId === id);
-                    allRecords.push(...patientOrders);
+                for (let i = 1; i <= 50; i++) {
+                    const reportId = `REP${String(i).padStart(3, '0')}`;
+                    try {
+                        const report = await FabricService.query(orgRole, 'User1', 'getLabReport', reportId);
+                        if (report && report.patientId === id) {
+                            // Avoid duplicates
+                            if (!allRecords.find(r => (r.reportId || r.Record?.reportId) === reportId)) {
+                                allRecords.push(report);
+                            }
+                        }
+                    } catch (e) {
+                        // Report doesn't exist, continue
+                    }
                 }
             } catch (e) {
-                console.log('Could not fetch lab orders:', e.message);
+                console.log('Could not probe lab reports:', e.message);
             }
 
             res.json({ success: true, data: allRecords });

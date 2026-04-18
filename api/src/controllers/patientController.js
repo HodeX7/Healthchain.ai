@@ -77,15 +77,23 @@ const PatientController = {
                 console.log('Could not fetch claims for patient:', e.message);
             }
 
-            // 4. Get lab orders from public state
+            // 4. Probe for lab reports directly (getLabReport has no MSP restriction)
             try {
-                const labOrders = await FabricService.query('lab', 'User1', 'viewLabOrders', '');
-                if (Array.isArray(labOrders)) {
-                    const patientOrders = labOrders.filter(o => o.patientId === id);
-                    allRecords.push(...patientOrders);
+                for (let i = 1; i <= 50; i++) {
+                    const reportId = `REP${String(i).padStart(3, '0')}`;
+                    try {
+                        const report = await FabricService.query(ORG_ROLE, 'User1', 'getLabReport', reportId);
+                        if (report && report.patientId === id) {
+                            if (!allRecords.find(r => (r.reportId || r.Record?.reportId) === reportId)) {
+                                allRecords.push(report);
+                            }
+                        }
+                    } catch (e) {
+                        // Report doesn't exist, continue
+                    }
                 }
             } catch (e) {
-                console.log('Could not fetch lab orders for patient:', e.message);
+                console.log('Could not probe lab reports for patient:', e.message);
             }
 
             res.json({ success: true, data: allRecords });
