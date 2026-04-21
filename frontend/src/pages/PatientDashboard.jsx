@@ -7,8 +7,10 @@ import { Modal } from '../components/ui/Modal';
 import { Shield, FileText, Activity, Key, Lock } from 'lucide-react';
 import { PatientService } from '../services/api';
 import { DocumentViewer } from '../components/ui/DocumentViewer';
+import { useToast } from '../components/ui/Toast';
 
 export default function PatientDashboard() {
+  const toast = useToast();
   const [profile, setProfile] = useState(null);
   const [records, setRecords] = useState([]);
   const [auditLogs, setAuditLogs] = useState([]);
@@ -38,54 +40,46 @@ export default function PatientDashboard() {
 
     const fetchData = async () => {
       try {
-        const profileRes = await PatientService.getProfile(patientId);
-        setProfile(profileRes.data);
+        const [profileRes, recordsRes, logsRes, consentsRes, requestsRes] = await Promise.allSettled([
+          PatientService.getProfile(patientId),
+          PatientService.getRecords(patientId),
+          PatientService.getAuditLogs(patientId),
+          PatientService.getConsents(patientId),
+          PatientService.getAccessRequests(patientId)
+        ]);
 
-        // Backend PDC isolation is resolved; fetch patient records securely
-        try {
-          const recordsRes = await PatientService.getRecords(patientId);
-          if (recordsRes && recordsRes.data) {
-            setRecords(Array.isArray(recordsRes.data) ? recordsRes.data : []);
-          }
-        } catch (err) {
-          console.warn("Failed to fetch medical records for patient portal", err);
+        if (profileRes.status === 'fulfilled') setProfile(profileRes.value.data);
+        else setError("Failed to fetch patient profile from the blockchain.");
+
+        if (recordsRes.status === 'fulfilled' && recordsRes.value.data) {
+          setRecords(Array.isArray(recordsRes.value.data) ? recordsRes.value.data : []);
         }
 
-        // Fetch audit logs
-        try {
-          const logsRes = await PatientService.getAuditLogs(patientId);
-          const sortedLogs = (Array.isArray(logsRes.data) ? logsRes.data : []).sort((a, b) => {
+        if (logsRes.status === 'fulfilled') {
+          const sortedLogs = (Array.isArray(logsRes.value.data) ? logsRes.value.data : []).sort((a, b) => {
              const timeA = new Date((a.Record || a).timestamp || 0).getTime();
              const timeB = new Date((b.Record || b).timestamp || 0).getTime();
              return timeB - timeA;
           });
           setAuditLogs(sortedLogs);
-        } catch (err) {
-            console.warn("Failed to fetch audit logs", err);
         }
 
-        try {
-          const consentsRes = await PatientService.getConsents(patientId);
-          setActiveConsents(Array.isArray(consentsRes.data) ? consentsRes.data.filter(c => (c.Record || c).status === 'active').map(c => c.Record || c) : []);
-        } catch (err) {
-            console.warn("Failed to fetch consents", err);
+        if (consentsRes.status === 'fulfilled') {
+          setActiveConsents(Array.isArray(consentsRes.value.data) ? consentsRes.value.data.filter(c => (c.Record || c).status === 'active').map(c => c.Record || c) : []);
         }
 
-        try {
-          const requestsRes = await PatientService.getAccessRequests(patientId);
-          setPendingRequests(Array.isArray(requestsRes.data) ? requestsRes.data.filter(r => (r.Record || r).status === 'pending').map(r => r.Record || r) : []);
-        } catch (err) {
-            console.warn("Failed to fetch access requests", err);
+        if (requestsRes.status === 'fulfilled') {
+          setPendingRequests(Array.isArray(requestsRes.value.data) ? requestsRes.value.data.filter(r => (r.Record || r).status === 'pending').map(r => r.Record || r) : []);
         }
 
       } catch (err) {
-        setError("Failed to fetch patient data from the blockchain.");
-        console.error(err);
+        console.error("Critical fetching error", err);
+        setError("Critical error loading ledger state.");
       }
     };
 
     fetchData();
-  }, [patientId, currentPath]);
+  }, [patientId]);
 
   const handleGrantConsent = async (e) => {
     e.preventDefault();
@@ -117,10 +111,10 @@ export default function PatientDashboard() {
       const consentsRes = await PatientService.getConsents(patientId);
       setActiveConsents(Array.isArray(consentsRes.data) ? consentsRes.data.filter(c => (c.Record || c).status === 'active').map(c => c.Record || c) : []);
 
-      alert("Access granted successfully on the ledger!");
+      toast.success("Access granted successfully on the ledger!");
     } catch (err) {
       const backendMsg = err.response?.data?.error || err.message;
-      alert(`Failed to grant access:\n${backendMsg}`);
+      toast.error(`Failed to grant access: ${backendMsg}`);
       console.error(err);
     } finally {
       setIsLoading(false);
@@ -143,9 +137,9 @@ export default function PatientDashboard() {
       const consentsRes = await PatientService.getConsents(patientId);
       setActiveConsents(Array.isArray(consentsRes.data) ? consentsRes.data.filter(c => (c.Record || c).status === 'active').map(c => c.Record || c) : []);
       
-      alert("Access granted successfully from pending request!");
+      toast.success("Access granted successfully from pending request!");
     } catch (err) {
-      alert(`Failed to grant access: ${err.message}`);
+      toast.error(`Failed to grant access: ${err.message}`);
     } finally {
       setIsLoading(false);
     }
@@ -156,9 +150,9 @@ export default function PatientDashboard() {
     try {
       await PatientService.rejectAccessRequest(patientId, hospitalId);
       setPendingRequests(prev => prev.filter(r => r.hospitalOrg !== hospitalId));
-      alert("Access request rejected.");
+      toast.success("Access request rejected.");
     } catch (err) {
-       alert(`Failed to reject request: ${err.message}`);
+       toast.error(`Failed to reject request: ${err.message}`);
     } finally {
       setIsLoading(false);
     }
@@ -181,10 +175,10 @@ export default function PatientDashboard() {
       setRevokeModalOpen(false);
       setHospitalIdInput('');
       setActiveConsents(prev => prev.filter(c => c.hospitalOrg !== mspId));
-      alert("Access revoked successfully on the ledger!");
+      toast.success("Access revoked successfully on the ledger!");
     } catch (err) {
       const backendMsg = err.response?.data?.error || err.message;
-      alert(`Failed to revoke access:\n${backendMsg}`);
+      toast.error(`Failed to revoke access: ${backendMsg}`);
       console.error(err);
     } finally {
       setIsLoading(false);
@@ -203,9 +197,9 @@ export default function PatientDashboard() {
       });
       setAuditLogs(sortedLogs);
       
-      alert("Access revoked successfully.");
+      toast.success("Access revoked successfully.");
     } catch (err) {
-       alert(`Failed to revoke access: ${err.message}`);
+       toast.error(`Failed to revoke access: ${err.message}`);
     } finally {
       setIsLoading(false);
     }
@@ -233,20 +227,32 @@ export default function PatientDashboard() {
       ) : (
         <>
           {(currentPath === '/dashboard' || currentPath === '/') && (
-            <Card className="border-l-4 border-l-brand-500 max-w-xl">
-              <CardHeader>
-                <CardTitle className=" flex items-center"><UserIcon className="w-5 h-5 mr-2 text-brand-500" /> My Profile</CardTitle>
+            <Card className="max-w-xl bg-white/70 backdrop-blur-xl border border-white/50 shadow-xl shadow-brand-900/5 relative overflow-hidden group">
+              <div className="absolute top-0 right-0 w-64 h-64 bg-gradient-to-br from-brand-300/30 to-indigo-400/10 blur-3xl -z-10 group-hover:scale-110 transition-transform duration-700"></div>
+              <CardHeader className="border-b border-white/40 bg-white/40">
+                <CardTitle className=" flex items-center font-bold text-slate-800"><UserIcon className="w-5 h-5 mr-2 text-brand-600" /> Executive Profile</CardTitle>
               </CardHeader>
-              <CardContent>
+              <CardContent className="pt-6">
                 {profile ? (
-                  <ul className="space-y-3 text-sm">
-                    <li className="flex justify-between border-b pb-2"><span className="text-slate-500">Name</span><span className="font-medium">{profile.firstName} {profile.lastName}</span></li>
-                    <li className="flex justify-between border-b pb-2"><span className="text-slate-500">Patient ID</span><span className="font-medium text-slate-700">{profile.patientId || profile.id}</span></li>
-                    <li className="flex justify-between border-b pb-2"><span className="text-slate-500">Date of Birth</span><span className="font-medium">{profile.dateOfBirth}</span></li>
-                    <li className="flex justify-between"><span className="text-slate-500">Blood Group</span><span className="font-medium text-red-500">{profile.bloodGroup}</span></li>
+                  <ul className="space-y-4 text-sm font-medium">
+                    <li className="flex justify-between items-center group/item"><span className="text-slate-500">Legal Name</span><span className="text-slate-900 text-base">{profile.firstName} {profile.lastName}</span></li>
+                    <li className="flex justify-between items-center group/item"><span className="text-slate-500">Network ID</span><span className="text-brand-700 font-mono bg-brand-50 px-3 py-1 rounded-full text-xs shadow-inner uppercase">{profile.patientId || profile.id}</span></li>
+                    <li className="flex justify-between items-center group/item"><span className="text-slate-500">Date of Birth</span><span className="text-slate-800">{profile.dateOfBirth}</span></li>
+                    <li className="flex justify-between items-center group/item">
+                       <span className="text-slate-500">Blood Group</span>
+                       <span className="flex items-center text-red-600 font-bold bg-red-50 border border-red-100 px-3 py-1 rounded-full shadow-sm">
+                           <Activity className="w-3 h-3 mr-1" />
+                           {profile.bloodGroup}
+                       </span>
+                    </li>
                   </ul>
                 ) : (
-                  <p className="text-slate-400 animate-pulse">Loading profile from ledger...</p>
+                  <div className="space-y-4 animate-pulse">
+                     <div className="h-4 bg-slate-200 rounded w-full"></div>
+                     <div className="h-4 bg-slate-200 rounded w-full"></div>
+                     <div className="h-4 bg-slate-200 rounded w-3/4"></div>
+                     <div className="h-4 bg-slate-200 rounded w-1/2"></div>
+                  </div>
                 )}
               </CardContent>
             </Card>

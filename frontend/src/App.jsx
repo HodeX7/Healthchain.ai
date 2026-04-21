@@ -7,6 +7,7 @@ import HospitalDashboard from './pages/HospitalDashboard';
 import LabDashboard from './pages/LabDashboard';
 import PharmacyDashboard from './pages/PharmacyDashboard';
 import InsuranceDashboard from './pages/InsuranceDashboard';
+import { ToastProvider } from './components/ui/Toast';
 
 function RoleDashboardRouter() {
   const role = localStorage.getItem('hc_role');
@@ -20,6 +21,18 @@ function RoleDashboardRouter() {
   return <Navigate to="/" replace />;
 }
 
+const RoleGuard = ({ roleRequired, children }) => {
+  const currentRole = localStorage.getItem('hc_role');
+  // Handle wildcard hospital IDs
+  if (roleRequired === 'hospital' && currentRole && currentRole.startsWith('hospital')) {
+     return children;
+  }
+  if (currentRole === roleRequired) {
+     return children;
+  }
+  return <Navigate to="/dashboard" replace />;
+};
+
 // Fallback for unmatched protected routes
 const UnderConstruction = () => (
   <div className="flex flex-col items-center justify-center p-12 text-center h-full">
@@ -31,23 +44,25 @@ const UnderConstruction = () => (
 
 export default function App() {
   return (
-    <BrowserRouter>
-      <Routes>
-        <Route path="/" element={<Login />} />
-        
-        {/* Protected Routes utilizing Layout */}
-        <Route element={<Layout />}>
-          <Route path="/dashboard" element={<RoleDashboardRouter />} />
-          <Route path="/records" element={<PatientDashboard />} />
-          <Route path="/consents" element={<PatientDashboard />} /> {/* Consent modal is in dashboard, mapping to it */}
-          <Route path="/audit" element={<PatientDashboard />} />
-          <Route path="/create-record" element={<HospitalDashboard />} />
-          <Route path="/orders" element={<LabDashboard />} />
-          <Route path="/prescriptions" element={<PharmacyDashboard />} />
-        </Route>
+    <ToastProvider>
+      <BrowserRouter>
+        <Routes>
+          <Route path="/" element={<Login />} />
+          
+          {/* Protected Routes utilizing Layout */}
+          <Route element={<Layout />}>
+            <Route path="/dashboard" element={<RoleDashboardRouter />} />
+            <Route path="/records" element={<RoleGuard roleRequired="patient"><PatientDashboard /></RoleGuard>} />
+            <Route path="/consents" element={<RoleGuard roleRequired="patient"><PatientDashboard /></RoleGuard>} />
+            <Route path="/audit" element={<RoleGuard roleRequired="patient"><PatientDashboard /></RoleGuard>} />
+            <Route path="/create-record" element={<RoleGuard roleRequired="hospital"><HospitalDashboard /></RoleGuard>} />
+            <Route path="/orders" element={<RoleGuard roleRequired="lab"><LabDashboard /></RoleGuard>} />
+            <Route path="/prescriptions" element={<RoleGuard roleRequired="pharmacy"><PharmacyDashboard /></RoleGuard>} />
+          </Route>
 
-        <Route path="*" element={<Navigate to="/" replace />} />
-      </Routes>
-    </BrowserRouter>
+          <Route path="*" element={<Navigate to="/" replace />} />
+        </Routes>
+      </BrowserRouter>
+    </ToastProvider>
   );
 }

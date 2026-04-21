@@ -9,19 +9,15 @@ const api = axios.create({
   },
 });
 
-// We attach a mock interceptor for demo purposes to simulate varying roles
-// In a real app, this would attach JWT tokens.
+// Attach headers for role emulation
 api.interceptors.request.use((config) => {
   const role = localStorage.getItem('hc_role');
   if (role) {
     config.headers['X-User-Role'] = role;
   }
-  // Bust cache on GET requests so newly created records always appear
-  if (config.method === 'get') {
-    config.params = { ...config.params, _t: Date.now() };
-  }
   return config;
 });
+
 
 export const PatientService = {
   register: (data) => api.post('/patient/register', data).then(res => res.data),

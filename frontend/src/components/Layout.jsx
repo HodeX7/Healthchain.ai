@@ -29,9 +29,10 @@ export function Layout() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 flex flex-col md:flex-row">
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-slate-100 to-indigo-50/30 flex flex-col md:flex-row">
       {/* Sidebar */}
-      <aside className="w-full md:w-64 bg-white border-r border-slate-200 flex flex-col">
+      <aside className="w-full md:w-64 bg-white/80 backdrop-blur-xl border-r border-slate-200/60 shadow-sm flex flex-col overflow-hidden relative">
+        <div className="absolute -top-32 -left-32 w-64 h-64 bg-brand-500/10 blur-3xl rounded-full -z-10"></div>
         <div className="h-16 flex items-center px-6 border-b border-slate-100">
           <Shield className="w-6 h-6 text-brand-600 mr-2" />
           <span className="font-bold text-xl tracking-tight text-slate-900">HealthChain</span>
